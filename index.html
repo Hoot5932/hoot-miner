@@ -434,6 +434,8 @@
             return <svg {...svgProps}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3A2 2 0 0 0 6.9 2.5H4a2 2 0 0 0-2 2v13.5A2 2 0 0 0 4 20h16z"/></svg>;
           case 'FolderPlus':
             return <svg {...svgProps}><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3A2 2 0 0 0 6.9 2.5H4a2 2 0 0 0-2 2v13.5A2 2 0 0 0 4 20h16z"/></svg>;
+          case 'Share2':
+            return <svg {...svgProps}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>;
           default:
             return <svg {...svgProps}><circle cx="12" cy="12" r="10"/></svg>;
         }
@@ -617,10 +619,37 @@
       }
 
       // Individual Live Test Card with Answer Key Option
-      function ContestCard({ contest, onViewAnswerKey }) {
+      function ContestCard({ contest, onViewAnswerKey, addToast }) {
         const [isFlipped, setIsFlipped] = useState(false);
+        const [copiedShare, setCopiedShare] = useState(false);
         const questionCount = Array.isArray(contest.questions) ? contest.questions.length : 0;
         const duration = contest.duration || contest.limits || '60 Mins';
+
+        const handleShareExam = (e) => {
+          if (e) e.stopPropagation();
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('examId', contest.id);
+            const shareUrlStr = url.toString();
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(shareUrlStr);
+            } else {
+              const textArea = document.createElement("textarea");
+              textArea.value = shareUrlStr;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textArea);
+            }
+
+            setCopiedShare(true);
+            if (addToast) addToast(`Share link for "${contest.title}" copied to clipboard! 🔗`, 'success');
+            setTimeout(() => setCopiedShare(false), 2500);
+          } catch (err) {
+            console.error("Failed to copy link:", err);
+          }
+        };
 
         return (
           <div className="w-full max-w-sm h-[495px] perspective-1000">
@@ -666,15 +695,28 @@
                 <div className="p-6 pt-0 flex items-center gap-2">
                   <button
                     onClick={() => onViewAnswerKey(contest)}
-                    className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg hover:shadow-purple-600/50 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3 px-3 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg hover:shadow-purple-600/50 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <Icon name="Key" className="w-4 h-4" />
                     <span>View Key</span>
                   </button>
 
                   <button
+                    onClick={handleShareExam}
+                    className={`py-3 px-3 rounded-2xl font-extrabold text-xs border transition-all cursor-pointer flex items-center gap-1 ${
+                      copiedShare
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                        : 'bg-slate-800 hover:bg-slate-700 text-purple-300 hover:text-white border-slate-700'
+                    }`}
+                    title="Copy direct shareable link for this exam"
+                  >
+                    <Icon name={copiedShare ? "Check" : "Share2"} className="w-3.5 h-3.5" />
+                    <span>{copiedShare ? "Copied!" : "Share 🔗"}</span>
+                  </button>
+
+                  <button
                     onClick={() => setIsFlipped(true)}
-                    className="py-3 px-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs border border-slate-700 transition-all cursor-pointer flex items-center gap-1"
+                    className="py-3 px-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs border border-slate-700 transition-all cursor-pointer flex items-center gap-1"
                     title="Click to view full exam details"
                   >
                     <Icon name="RotateCcw" className="w-3.5 h-3.5 text-purple-400" />
@@ -713,15 +755,28 @@
                 <div className="pt-3 border-t border-slate-800 flex items-center gap-2">
                   <button
                     onClick={() => onViewAnswerKey(contest)}
-                    className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3 px-3 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <Icon name="Key" className="w-4 h-4" />
                     <span>View Key</span>
                   </button>
 
                   <button
+                    onClick={handleShareExam}
+                    className={`py-3 px-3 rounded-2xl font-extrabold text-xs border transition-all cursor-pointer flex items-center gap-1 ${
+                      copiedShare
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                        : 'bg-slate-800 hover:bg-slate-700 text-purple-300 hover:text-white border-slate-700'
+                    }`}
+                    title="Copy direct shareable link for this exam"
+                  >
+                    <Icon name={copiedShare ? "Check" : "Share2"} className="w-3.5 h-3.5" />
+                    <span>{copiedShare ? "Copied!" : "Share 🔗"}</span>
+                  </button>
+
+                  <button
                     onClick={() => setIsFlipped(false)}
-                    className="py-3 px-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-extrabold text-xs border border-slate-700 cursor-pointer flex items-center gap-1"
+                    className="py-3 px-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-extrabold text-xs border border-slate-700 cursor-pointer flex items-center gap-1"
                   >
                     <Icon name="RotateCcw" className="w-3.5 h-3.5 text-purple-400" />
                     <span>Flip Back ↩️</span>
@@ -735,7 +790,7 @@
       }
 
       // HOME SECTION: Live Tests & Exam Answer Keys Section
-      function ContestsSection({ contests, onViewAnswerKey }) {
+      function ContestsSection({ contests, onViewAnswerKey, addToast }) {
         return (
           <section id="live-tests" className="py-16 bg-gradient-to-b from-slate-900 via-purple-950 to-slate-950 text-white relative overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -761,6 +816,7 @@
                       key={contest.id}
                       contest={contest}
                       onViewAnswerKey={onViewAnswerKey}
+                      addToast={addToast}
                     />
                   ))}
                 </div>
@@ -780,6 +836,7 @@
       // Modal Component for Viewing Exam Questions & Answer Keys with Copy Button
       function ViewAnswerKeyModal({ test, onClose, addToast }) {
         const [copiedIndex, setCopiedIndex] = useState(null);
+        const [copiedShare, setCopiedShare] = useState(false);
 
         if (!test) return null;
         const questions = Array.isArray(test.questions) ? test.questions : [];
@@ -792,6 +849,31 @@
           setTimeout(() => {
             setCopiedIndex(null);
           }, 2500);
+        };
+
+        const handleShareExamLink = () => {
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('examId', test.id);
+            const shareUrlStr = url.toString();
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(shareUrlStr);
+            } else {
+              const textArea = document.createElement("textarea");
+              textArea.value = shareUrlStr;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textArea);
+            }
+
+            setCopiedShare(true);
+            if (addToast) addToast(`Live Exam share link copied to clipboard! 🔗`, 'success');
+            setTimeout(() => setCopiedShare(false), 2500);
+          } catch(err) {
+            console.error("Failed to copy share link:", err);
+          }
         };
 
         return (
@@ -816,12 +898,27 @@
                     </div>
                   </div>
 
-                  <button
-                    onClick={onClose}
-                    className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
-                  >
-                    <Icon name="X" className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleShareExamLink}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-extrabold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                        copiedShare
+                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                          : 'bg-purple-950/80 hover:bg-purple-900 text-purple-200 hover:text-white border-purple-700/60'
+                      }`}
+                      title="Copy direct shareable link for this live exam"
+                    >
+                      <Icon name={copiedShare ? "Check" : "Share2"} className="w-3.5 h-3.5" />
+                      <span>{copiedShare ? "Link Copied! ✓" : "Share 🔗"}</span>
+                    </button>
+
+                    <button
+                      onClick={onClose}
+                      className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all cursor-pointer"
+                    >
+                      <Icon name="X" className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Exam Overview */}
@@ -1390,6 +1487,8 @@
           }
         };
 
+        const hasAutoOpenedExamRef = useRef(false);
+
         useEffect(() => {
           loadData();
           if (window.HootDB) {
@@ -1407,6 +1506,27 @@
             };
           }
         }, []);
+
+        // AUTO-OPEN SHARED EXAM IF URL PARAMETER examId IS PRESENT
+        useEffect(() => {
+          if (contests && contests.length > 0 && !hasAutoOpenedExamRef.current) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('examId') || urlParams.get('exam') || urlParams.get('testId');
+            if (examId) {
+              const targetExam = contests.find(c => String(c.id) === String(examId) || String(c.id) === decodeURIComponent(examId));
+              if (targetExam) {
+                hasAutoOpenedExamRef.current = true;
+                setActiveTab('home');
+                setViewingTestKey(targetExam);
+                addToast(`Opened shared live exam: "${targetExam.title}"`, 'info');
+                setTimeout(() => {
+                  const el = document.getElementById('live-tests');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }, 300);
+              }
+            }
+          }
+        }, [contests]);
 
         // Handle Apply Click on Contest Card
         const handleOpenApplyModal = (contest) => {

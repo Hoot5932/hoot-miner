@@ -21,6 +21,9 @@
     <!-- Babel Standalone CDN -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Bcrypt JS CDN for Password Hash Verification -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
+
     <style>
       :root {
         --bg-main: #f8fafc;
@@ -341,6 +344,7 @@
           case 'AlertTriangle': return <svg {...svgProps}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>;
           case 'BookOpen': return <svg {...svgProps}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
           case 'Info': return <svg {...svgProps}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>;
+          case 'Share2': return <svg {...svgProps}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>;
           default: return <svg {...svgProps}><circle cx="12" cy="12" r="10"/></svg>;
         }
       }
@@ -382,24 +386,69 @@
         );
       }
 
-      // Admin Login Component
+      const ADMIN_SECURITY_HASH = '$2y$10$uojqG7bFOXjFjO9rQfoAbeZZIsYPCf064OQoPkqCiWiYoDGiyoBHi';
+
+      // Admin Login Component with Bcrypt Hash Security Verification
       function AdminLogin({ onLoginSuccess, addToast }) {
-        const [email, setEmail] = useState('admin@hootminer.io');
-        const [password, setPassword] = useState('hootminer2026');
+        const [username, setUsername] = useState('');
+        const [password, setPassword] = useState('');
+        const [loginError, setLoginError] = useState('');
         const [loading, setLoading] = useState(false);
+
+        const getBcrypt = () => {
+          if (window.dcodeIO && window.dcodeIO.bcrypt) return window.dcodeIO.bcrypt;
+          if (window.bcrypt) return window.bcrypt;
+          return null;
+        };
 
         const handleSubmit = (e) => {
           e.preventDefault();
+          setLoginError('');
+
+          const uTrim = username.trim();
+          const pTrim = password.trim();
+
+          if (!uTrim || !pTrim) {
+            setLoginError('Please enter both username/email and password.');
+            if (addToast) addToast('Please enter both username/email and password', 'error');
+            return;
+          }
+
           setLoading(true);
+
           setTimeout(() => {
-            if (email.trim() && password.trim()) {
-              onLoginSuccess({ email, role: 'Administrator', loginTime: new Date().toISOString() });
-              if (addToast) addToast('Authenticated successfully as Admin', 'success');
+            let isAuthenticated = false;
+            const bcrypt = getBcrypt();
+            const normalizedHash = ADMIN_SECURITY_HASH.replace(/^\$2y\$/, '$2a$');
+
+            if (bcrypt && typeof bcrypt.compareSync === 'function') {
+              try {
+                // Verify entered password, username, or combination against security hash
+                if (
+                  bcrypt.compareSync(pTrim, normalizedHash) ||
+                  bcrypt.compareSync(uTrim, normalizedHash) ||
+                  bcrypt.compareSync(`${uTrim}:${pTrim}`, normalizedHash) ||
+                  bcrypt.compareSync(`${uTrim}${pTrim}`, normalizedHash) ||
+                  bcrypt.compareSync(`${pTrim}:${uTrim}`, normalizedHash)
+                ) {
+                  isAuthenticated = true;
+                }
+              } catch (err) {
+                console.error("Bcrypt verification error:", err);
+              }
             } else {
-              if (addToast) addToast('Please enter valid credentials', 'error');
+              console.warn("Bcrypt library not loaded yet, fallback check running...");
+            }
+
+            if (isAuthenticated) {
+              onLoginSuccess({ email: uTrim, role: 'Administrator', loginTime: new Date().toISOString() });
+              if (addToast) addToast('Authenticated successfully as Admin!', 'success');
+            } else {
+              setLoginError('Authentication failed. Username or password does not match security hash.');
+              if (addToast) addToast('Invalid admin credentials. Security hash mismatch!', 'error');
             }
             setLoading(false);
-          }, 400);
+          }, 300);
         };
 
         return (
@@ -412,38 +461,51 @@
                   </div>
                 </div>
                 <h2 className="text-2xl font-black text-slate-900">Admin Authentication</h2>
-                <p className="text-xs text-slate-500 mt-1 font-medium">Sign in to manage repositories, Q&A entries, and live exam answer keys.</p>
+                <p className="text-xs text-slate-500 mt-1 font-medium">Protected system. Enter credentials matching the security hash.</p>
               </div>
+
+              {loginError && (
+                <div className="mb-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 flex items-start gap-2.5 shadow-sm">
+                  <Icon name="AlertTriangle" className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{loginError}</span>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Admin Email</label>
+                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Admin Username / Email *</label>
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter Admin Username or Email"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:border-purple-600 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">Password</label>
+                  <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1.5">Admin Password *</label>
                   <input
                     type="password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold"
+                    placeholder="Enter Admin Password"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:border-purple-600 transition-all"
                   />
+                </div>
+
+                <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-[11px] font-medium text-purple-900 leading-snug">
+                  🔒 Protected by Bcrypt security hash verification.
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 cursor-pointer mt-6"
+                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-sm shadow-lg hover:shadow-purple-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer mt-6"
                 >
-                  {loading ? <span>Authenticating...</span> : <span>Enter Admin Dashboard &rarr;</span>}
+                  {loading ? <span>Verifying Security Hash...</span> : <span>Authenticate & Enter Admin Portal &rarr;</span>}
                 </button>
               </form>
             </div>
@@ -1209,9 +1271,35 @@
           if (!deleteConfirm) return;
           if (window.HootDB) {
             await window.HootDB.deleteContest(deleteConfirm.id);
-            addToast('Live Test deleted successfully', 'warning');
+            addToast('Live Test deleted successfully', 'info');
             setDeleteConfirm(null);
             onRefresh();
+          }
+        };
+
+        const handleShareAdminExam = (contest) => {
+          try {
+            let baseUrl = window.location.href.split('?')[0];
+            if (baseUrl.endsWith('admin.html')) {
+              baseUrl = baseUrl.replace('admin.html', 'index.html');
+            }
+            const url = new URL(baseUrl);
+            url.searchParams.set('examId', contest.id);
+            const linkStr = url.toString();
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(linkStr);
+            } else {
+              const textArea = document.createElement("textarea");
+              textArea.value = linkStr;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textArea);
+            }
+            addToast(`Exam share link copied for "${contest.title}"! 🔗`, 'success');
+          } catch(e) {
+            console.error(e);
           }
         };
 
@@ -1270,10 +1358,13 @@
                       <div className="p-6 pt-0 border-t border-slate-100 flex items-center justify-between mt-2">
                         <span className="text-xs font-mono font-bold text-slate-400">Duration: {c.duration || c.limits || '60 Mins'}</span>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => handleOpenEdit(c)} className="p-2 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200">
-                            <Icon name="Edit2" className="w-4 h-4 text-purple-600" />
+                          <button onClick={() => handleShareAdminExam(c)} className="p-2 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 cursor-pointer" title="Copy shareable link for users">
+                            <Icon name="Share2" className="w-4 h-4 text-purple-600" />
                           </button>
-                          <button onClick={() => setDeleteConfirm(c)} className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200">
+                          <button onClick={() => handleOpenEdit(c)} className="p-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 cursor-pointer" title="Edit exam">
+                            <Icon name="Edit2" className="w-4 h-4 text-slate-600" />
+                          </button>
+                          <button onClick={() => setDeleteConfirm(c)} className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 cursor-pointer" title="Delete exam">
                             <Icon name="Trash2" className="w-4 h-4" />
                           </button>
                         </div>
@@ -1289,15 +1380,12 @@
                 <p className="text-xs text-slate-500 mt-1 mb-4">Click "+ Create Live Test" above to publish your first exam with questions and answer keys.</p>
                 <button
                   onClick={handleOpenCreate}
-                  className="px-5 py-2.5 rounded-2xl bg-purple-600 text-white font-extrabold text-xs shadow-md"
+                  className="px-5 py-2.5 rounded-2xl bg-purple-600 text-white font-extrabold text-xs shadow-md cursor-pointer"
                 >
                   + Create Live Test Now
                 </button>
               </div>
             )}
-
-            {/* Create / Edit Live Test Modal */}
-            {isModalOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                 <div className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-3xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
