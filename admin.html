@@ -15,8 +15,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- React & ReactDOM CDN -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
     <!-- Babel Standalone CDN -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -75,7 +75,139 @@
   <body>
     <div id="admin-root"></div>
 
-    <!-- Firebase SDK Imports via CDN -->
+    <!-- Instant Synchronous Fallback Database (Guarantees immediate rendering on file:// protocol and offline) -->
+    <script>
+      (function() {
+        const LOCAL_STORAGE_REPOS_KEY = "hootminer_repos";
+        const LOCAL_STORAGE_QUESTIONS_KEY = "hootminer_questions";
+        const LOCAL_STORAGE_CONTESTS_KEY = "hootminer_contests";
+        const LOCAL_STORAGE_SUBFOLDERS_KEY = "hootminer_subfolders";
+        const LOCAL_STORAGE_APPS_KEY = "hootminer_applications";
+
+        window.HootDB = {
+          async seedInitialDataIfNeeded() { return true; },
+          async fetchRepositories() {
+            const local = localStorage.getItem(LOCAL_STORAGE_REPOS_KEY);
+            return local ? JSON.parse(local) : [];
+          },
+          async saveRepository(repo) {
+            const id = repo.id || `repo-${Date.now()}`;
+            const now = new Date().toISOString();
+            const repoData = { ...repo, id, createdAt: repo.createdAt || now, updatedAt: now, visibility: repo.visibility || "Published" };
+            const local = localStorage.getItem(LOCAL_STORAGE_REPOS_KEY);
+            const existing = local ? JSON.parse(local) : [];
+            const idx = existing.findIndex(r => r.id === id);
+            if (idx >= 0) existing[idx] = repoData; else existing.push(repoData);
+            localStorage.setItem(LOCAL_STORAGE_REPOS_KEY, JSON.stringify(existing));
+            return repoData;
+          },
+          async deleteRepository(repoId) {
+            const local = localStorage.getItem(LOCAL_STORAGE_REPOS_KEY);
+            const existing = local ? JSON.parse(local) : [];
+            const filtered = existing.filter(r => r.id !== repoId);
+            localStorage.setItem(LOCAL_STORAGE_REPOS_KEY, JSON.stringify(filtered));
+            return true;
+          },
+          async clearAllRepositories() {
+            localStorage.removeItem(LOCAL_STORAGE_REPOS_KEY);
+            localStorage.removeItem(LOCAL_STORAGE_QUESTIONS_KEY);
+            localStorage.removeItem(LOCAL_STORAGE_SUBFOLDERS_KEY);
+            return true;
+          },
+          async fetchQuestions() {
+            const local = localStorage.getItem(LOCAL_STORAGE_QUESTIONS_KEY);
+            return local ? JSON.parse(local) : [];
+          },
+          async saveQuestion(question) {
+            const id = question.id || `q-${Date.now()}`;
+            const now = new Date().toISOString();
+            const qData = { ...question, id, displayOrder: Number(question.displayOrder) || 1, createdAt: question.createdAt || now };
+            const local = localStorage.getItem(LOCAL_STORAGE_QUESTIONS_KEY);
+            const existing = local ? JSON.parse(local) : [];
+            const idx = existing.findIndex(q => q.id === id);
+            if (idx >= 0) existing[idx] = qData; else existing.push(qData);
+            localStorage.setItem(LOCAL_STORAGE_QUESTIONS_KEY, JSON.stringify(existing));
+            return qData;
+          },
+          async deleteQuestion(questionId) {
+            const local = localStorage.getItem(LOCAL_STORAGE_QUESTIONS_KEY);
+            const existing = local ? JSON.parse(local) : [];
+            const filtered = existing.filter(q => q.id !== questionId);
+            localStorage.setItem(LOCAL_STORAGE_QUESTIONS_KEY, JSON.stringify(filtered));
+            return true;
+          },
+          async fetchSubfolders() {
+            const local = localStorage.getItem(LOCAL_STORAGE_SUBFOLDERS_KEY);
+            return local ? JSON.parse(local) : [];
+          },
+          async saveSubfolder(subfolder) {
+            const id = subfolder.id || `sf-${Date.now()}`;
+            const now = new Date().toISOString();
+            const sfData = { ...subfolder, id, createdAt: subfolder.createdAt || now, updatedAt: now };
+            const local = localStorage.getItem(LOCAL_STORAGE_SUBFOLDERS_KEY);
+            const existing = local ? JSON.parse(local) : [];
+            const idx = existing.findIndex(sf => sf.id === id);
+            if (idx >= 0) existing[idx] = sfData; else existing.push(sfData);
+            localStorage.setItem(LOCAL_STORAGE_SUBFOLDERS_KEY, JSON.stringify(existing));
+            return sfData;
+          },
+          async deleteSubfolder(sfId) {
+            const local = localStorage.getItem(LOCAL_STORAGE_SUBFOLDERS_KEY);
+            const existing = local ? JSON.parse(local) : [];
+            const filtered = existing.filter(sf => sf.id !== sfId);
+            localStorage.setItem(LOCAL_STORAGE_SUBFOLDERS_KEY, JSON.stringify(filtered));
+            return true;
+          },
+          async fetchContests() {
+            const local = localStorage.getItem(LOCAL_STORAGE_CONTESTS_KEY);
+            return local ? JSON.parse(local) : [];
+          },
+          async saveContest(contest) {
+            const id = contest.id || `contest-${Date.now()}`;
+            const now = new Date().toISOString();
+            const contestData = { ...contest, id, createdAt: contest.createdAt || now, updatedAt: now, status: contest.status || 'Active' };
+            const local = localStorage.getItem(LOCAL_STORAGE_CONTESTS_KEY);
+            const existing = local ? JSON.parse(local) : [];
+            const idx = existing.findIndex(c => c.id === id);
+            if (idx >= 0) existing[idx] = contestData; else existing.push(contestData);
+            localStorage.setItem(LOCAL_STORAGE_CONTESTS_KEY, JSON.stringify(existing));
+            return contestData;
+          },
+          async deleteContest(id) {
+            const local = localStorage.getItem(LOCAL_STORAGE_CONTESTS_KEY);
+            const existing = local ? JSON.parse(local) : [];
+            const filtered = existing.filter(c => c.id !== id);
+            localStorage.setItem(LOCAL_STORAGE_CONTESTS_KEY, JSON.stringify(filtered));
+            return true;
+          },
+          async fetchContestApplications() {
+            const local = localStorage.getItem(LOCAL_STORAGE_APPS_KEY);
+            return local ? JSON.parse(local) : [];
+          },
+          async updateApplicationStatus(appId, newStatus) {
+            const localApps = localStorage.getItem(LOCAL_STORAGE_APPS_KEY);
+            if (localApps) {
+              const parsed = JSON.parse(localApps);
+              const idx = parsed.findIndex(a => a.id === appId);
+              if (idx >= 0) {
+                parsed[idx].status = newStatus;
+                localStorage.setItem(LOCAL_STORAGE_APPS_KEY, JSON.stringify(parsed));
+              }
+            }
+            return true;
+          },
+          subscribeToRepositories(cb) { this.fetchRepositories().then(r => cb(r)); return () => {}; },
+          subscribeToSubfolders(cb) { this.fetchSubfolders().then(sf => cb(sf)); return () => {}; },
+          subscribeToQuestions(cb) { this.fetchQuestions().then(q => cb(q)); return () => {}; },
+          subscribeToContests(cb) { this.fetchContests().then(c => cb(c)); return () => {}; },
+          subscribeToApplications(cb) { this.fetchContestApplications().then(a => cb(a)); return () => {}; }
+        };
+
+        window.dispatchEvent(new Event('HootDBReady'));
+      })();
+    </script>
+
+    <!-- Firebase Realtime Database Extension (Enhances HootDB if module loading is supported) -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
       import { getDatabase, ref, get, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
@@ -496,9 +628,6 @@
                   />
                 </div>
 
-                <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-[11px] font-medium text-purple-900 leading-snug">
-                  🔒 Protected by Bcrypt security hash verification.
-                </div>
 
                 <button
                   type="submit"
@@ -1384,6 +1513,7 @@
                 >
                   + Create Live Test Now
                 </button>
+              </div>
             )}
 
             {/* Create / Edit Live Test Modal */}
