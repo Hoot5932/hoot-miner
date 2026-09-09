@@ -202,79 +202,169 @@ export function subscribeToRepositories(callback) {
   });
 }
 
-// --- CONTESTS DB OPERATIONS ---
 
-// Fetch all Contests
-export async function fetchContests() {
+}
+
+// --- SUBFOLDERS DB OPERATIONS ---
+const LOCAL_STORAGE_SUBFOLDERS_KEY = "hootminer_subfolders";
+
+export async function fetchSubfolders() {
   try {
-    const contestsRef = ref(rtdb, "contests");
-    const snapshot = await get(contestsRef);
+    const sfRef = ref(rtdb, "subfolders");
+    const snapshot = await get(sfRef);
     if (snapshot.exists()) {
       return Object.values(snapshot.val());
     } else {
       return [];
     }
   } catch (err) {
-    console.warn("Error fetching contests, using local fallback:", err);
-    const local = localStorage.getItem(LOCAL_STORAGE_CONTESTS_KEY);
+    const local = localStorage.getItem(LOCAL_STORAGE_SUBFOLDERS_KEY);
     return local ? JSON.parse(local) : [];
   }
 }
 
-// Save Contest (Create or Update)
-export async function saveContest(contest) {
-  const id = contest.id || `contest-${Date.now()}`;
+export async function saveSubfolder(subfolder) {
+  const id = subfolder.id || `sf-${Date.now()}`;
   const now = new Date().toISOString();
-  const contestData = {
-    ...contest,
+  const sfData = {
+    ...subfolder,
     id,
-    createdAt: contest.createdAt || now,
-    updatedAt: now,
-    status: contest.status || "Active"
+    folderName: subfolder.folderName.trim(),
+    description: subfolder.description || '',
+    createdAt: subfolder.createdAt || now,
+    updatedAt: now
   };
 
   try {
-    await set(ref(rtdb, `contests/${id}`), contestData);
+    await set(ref(rtdb, `subfolders/${id}`), sfData);
   } catch (err) {
-    console.warn("Firebase contest save error:", err);
+    console.warn("Firebase subfolder save error:", err);
   }
 
-  const existing = await fetchContests();
-  const idx = existing.findIndex(c => c.id === id);
-  if (idx >= 0) existing[idx] = contestData;
-  else existing.push(contestData);
-  localStorage.setItem(LOCAL_STORAGE_CONTESTS_KEY, JSON.stringify(existing));
+  const existing = await fetchSubfolders();
+  const index = existing.findIndex((s) => s.id === id);
+  if (index >= 0) existing[index] = sfData;
+  else existing.push(sfData);
+  localStorage.setItem(LOCAL_STORAGE_SUBFOLDERS_KEY, JSON.stringify(existing));
 
-  return contestData;
+  return sfData;
 }
 
-// Delete Contest
-export async function deleteContest(contestId) {
+export async function deleteSubfolder(subfolderId) {
   try {
-    await remove(ref(rtdb, `contests/${contestId}`));
+    await remove(ref(rtdb, `subfolders/${subfolderId}`));
+    // Also remove questions in this subfolder
+    const allQuestions = await fetchQuestions();
+    const remainingQuestions = allQuestions.filter(q => q.subfolderId !== subfolderId);
+    const qMap = {};
+    remainingQuestions.forEach(q => { qMap[q.id] = q; });
+    await set(ref(rtdb, "questions_answers"), qMap);
+    localStorage.setItem(LOCAL_STORAGE_QUESTIONS_KEY, JSON.stringify(remainingQuestions));
   } catch (err) {
-    console.warn("Firebase contest delete error:", err);
+    console.warn("Firebase subfolder delete error:", err);
   }
 
-  const existing = await fetchContests();
-  const filtered = existing.filter(c => c.id !== contestId);
-  localStorage.setItem(LOCAL_STORAGE_CONTESTS_KEY, JSON.stringify(filtered));
+  const existing = await fetchSubfolders();
+  const filtered = existing.filter((s) => s.id !== subfolderId);
+  localStorage.setItem(LOCAL_STORAGE_SUBFOLDERS_KEY, JSON.stringify(filtered));
+
   return true;
 }
 
-// Subscribe to Contests
-export function subscribeToContests(callback) {
-  const contestsRef = ref(rtdb, "contests");
-  return onValue(contestsRef, (snapshot) => {
+export function subscribeToSubfolders(callback) {
+  const sfRef = ref(rtdb, "subfolders");
+  return onValue(sfRef, (snapshot) => {
     if (snapshot.exists()) {
       callback(Object.values(snapshot.val()));
     } else {
       callback([]);
     }
   }, (err) => {
-    console.warn("Contests listener error:", err);
+    console.warn("Subfolders listener error:", err);
   });
 }
+
+
+// --- LIVE TESTS / CONTESTS DB OPERATIONS ---
+
+// Fetch all Live Tests / Contests
+export async function fetchLiveTests() {
+  try {
+    const testsRef = ref(rtdb, "contests");
+    const snapshot = await get(testsRef);
+    if (snapshot.exists()) {
+      return Object.values(snapshot.val());
+    } else {
+      return [];
+    }
+  } catch (err) {
+    console.warn("Error fetching live tests, using local fallback:", err);
+    const local = localStorage.getItem(LOCAL_STORAGE_CONTESTS_KEY);
+    return local ? JSON.parse(local) : [];
+  }
+}
+export const fetchContests = fetchLiveTests;
+
+// Save Live Test (Create or Update)
+export async function saveLiveTest(test) {
+  const id = test.id || `test-${Date.now()}`;
+  const now = new Date().toISOString();
+  const testData = {
+    ...test,
+    id,
+    duration: test.duration || test.limits || "60 Mins",
+    questions: Array.isArray(test.questions) ? test.questions : [],
+    createdAt: test.createdAt || now,
+    updatedAt: now,
+    status: test.status || "Active"
+  };
+
+  try {
+    await set(ref(rtdb, `contests/${id}`), testData);
+  } catch (err) {
+    console.warn("Firebase live test save error:", err);
+  }
+
+  const existing = await fetchLiveTests();
+  const idx = existing.findIndex(c => c.id === id);
+  if (idx >= 0) existing[idx] = testData;
+  else existing.push(testData);
+  localStorage.setItem(LOCAL_STORAGE_CONTESTS_KEY, JSON.stringify(existing));
+
+  return testData;
+}
+export const saveContest = saveLiveTest;
+
+// Delete Live Test
+export async function deleteLiveTest(testId) {
+  try {
+    await remove(ref(rtdb, `contests/${testId}`));
+  } catch (err) {
+    console.warn("Firebase live test delete error:", err);
+  }
+
+  const existing = await fetchLiveTests();
+  const filtered = existing.filter(c => c.id !== testId);
+  localStorage.setItem(LOCAL_STORAGE_CONTESTS_KEY, JSON.stringify(filtered));
+  return true;
+}
+export const deleteContest = deleteLiveTest;
+
+// Subscribe to Live Tests
+export function subscribeToLiveTests(callback) {
+  const testsRef = ref(rtdb, "contests");
+  return onValue(testsRef, (snapshot) => {
+    if (snapshot.exists()) {
+      callback(Object.values(snapshot.val()));
+    } else {
+      callback([]);
+    }
+  }, (err) => {
+    console.warn("Live tests listener error:", err);
+  });
+}
+export const subscribeToContests = subscribeToLiveTests;
+
 
 // --- CONTEST APPLICATIONS DB OPERATIONS ---
 

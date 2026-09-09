@@ -174,6 +174,7 @@
       const LOCAL_STORAGE_REPOS_KEY = "hootminer_repos";
       const LOCAL_STORAGE_QUESTIONS_KEY = "hootminer_questions";
       const LOCAL_STORAGE_CONTESTS_KEY = "hootminer_contests";
+      const LOCAL_STORAGE_SUBFOLDERS_KEY = "hootminer_subfolders";
 
       window.HootDB = {
         async seedInitialDataIfNeeded() {
@@ -211,10 +212,43 @@
           }
         },
 
+        async fetchSubfolders() {
+          try {
+            const snapshot = await get(ref(rtdb, "subfolders"));
+            if (snapshot.exists()) {
+              return Object.values(snapshot.val());
+            }
+            return [];
+          } catch (err) {
+            const local = localStorage.getItem(LOCAL_STORAGE_SUBFOLDERS_KEY);
+            return local ? JSON.parse(local) : [];
+          }
+        },
+
         subscribeToRepositories(callback) {
           return onValue(ref(rtdb, "repositories"), (snapshot) => {
             if (snapshot.exists()) {
               callback(Object.values(snapshot.val()).filter(r => r && !DEFAULT_DEMO_REPO_IDS.includes(r.id)));
+            } else {
+              callback([]);
+            }
+          });
+        },
+
+        subscribeToSubfolders(callback) {
+          return onValue(ref(rtdb, "subfolders"), (snapshot) => {
+            if (snapshot.exists()) {
+              callback(Object.values(snapshot.val()));
+            } else {
+              callback([]);
+            }
+          });
+        },
+
+        subscribeToQuestions(callback) {
+          return onValue(ref(rtdb, "questions_answers"), (snapshot) => {
+            if (snapshot.exists()) {
+              callback(Object.values(snapshot.val()).filter(q => q && !DEFAULT_DEMO_QUESTION_IDS.includes(q.id)));
             } else {
               callback([]);
             }
@@ -366,6 +400,8 @@
             return <svg {...svgProps}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>;
           case 'Search':
             return <svg {...svgProps}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>;
+          case 'Key':
+            return <svg {...svgProps}><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg>;
           case 'Copy':
             return <svg {...svgProps}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>;
           case 'CheckCircle2':
@@ -394,6 +430,10 @@
             return <svg {...svgProps}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>;
           case 'ArrowLeft':
             return <svg {...svgProps}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>;
+          case 'Folder':
+            return <svg {...svgProps}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3A2 2 0 0 0 6.9 2.5H4a2 2 0 0 0-2 2v13.5A2 2 0 0 0 4 20h16z"/></svg>;
+          case 'FolderPlus':
+            return <svg {...svgProps}><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3A2 2 0 0 0 6.9 2.5H4a2 2 0 0 0-2 2v13.5A2 2 0 0 0 4 20h16z"/></svg>;
           default:
             return <svg {...svgProps}><circle cx="12" cy="12" r="10"/></svg>;
         }
@@ -481,18 +521,6 @@
                   <Icon name="FolderGit2" className={`w-4 h-4 ${activeTab === 'repos' || activeTab === 'repo-detail' ? 'text-white' : 'text-pink-600'}`} />
                   <span>Workspace</span>
                 </button>
-
-                <button
-                  onClick={() => setActiveTab('compiler')}
-                  className={`flex items-center gap-2 px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
-                    activeTab === 'compiler'
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
-                  }`}
-                >
-                  <Icon name="Code2" className={`w-4 h-4 ${activeTab === 'compiler' ? 'text-white' : 'text-purple-600'}`} />
-                  <span>Compiler</span>
-                </button>
               </nav>
 
               {/* Right Action Bar with Profile Icon */}
@@ -537,9 +565,6 @@
                 <button onClick={() => { setActiveTab('repos'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 hover:bg-purple-50">
                   <Icon name="FolderGit2" className="w-4 h-4 text-pink-600" /> Workspace Repositories
                 </button>
-                <button onClick={() => { setActiveTab('compiler'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 hover:bg-purple-50">
-                  <Icon name="Code2" className="w-4 h-4 text-purple-600" /> Online Compiler
-                </button>
               </div>
             )}
           </header>
@@ -547,7 +572,7 @@
       }
 
       // LandingHero Component
-      function LandingHero({ onLaunchWorkspace, onOpenCompiler, repoCount, questionCount }) {
+      function LandingHero({ onLaunchWorkspace, onOpenLiveTests }) {
         return (
           <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28">
             <div className="gradient-glow-bg"></div>
@@ -555,16 +580,16 @@
               
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100/90 border border-purple-300/80 backdrop-blur-md mb-8 text-xs font-bold text-purple-900 shadow-sm">
                 <Icon name="Zap" className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
-                <span>Realtime Solution Mining Engine & Live Contests</span>
+                <span>Realtime Solution Mining Engine & Live Tests</span>
               </div>
 
               <h1 className="text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-slate-900 mb-6 leading-[1.15]">
                 Mine Clean Code & <br />
-                <span className="gradient-text-purple">Execute Solutions Live</span>
+                <span className="gradient-text-purple">Browse Workspace Solutions</span>
               </h1>
 
               <p className="max-w-2xl mx-auto text-base sm:text-lg text-slate-600 mb-10 font-medium leading-relaxed">
-                An intuitive platform for developers. Access code solutions for C, Python, Java, join live coding contests, and execute code instantly!
+                An intuitive platform for developers. Explore repository collections, browse subfolders, access code solutions for C, Python, Java, and view live test answer keys!
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14 max-w-xl mx-auto">
@@ -578,11 +603,11 @@
                 </button>
 
                 <button
-                  onClick={onOpenCompiler}
+                  onClick={onOpenLiveTests}
                   className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:border-purple-400 hover:text-purple-700 transition-all flex items-center justify-center gap-3 shadow-sm cursor-pointer"
                 >
-                  <Icon name="Code2" className="w-4 h-4 text-purple-600" />
-                  <span>Open Online Compiler</span>
+                  <Icon name="Trophy" className="w-4 h-4 text-amber-500" />
+                  <span>Explore Live Tests</span>
                 </button>
               </div>
 
@@ -591,65 +616,11 @@
         );
       }
 
-      // Individual Contest Card with Smooth 3D Flip Rotation Effect & Realtime Status
-      function ContestCard({ contest, currentUser, userApp, onApplyContest }) {
+      // Individual Live Test Card with Answer Key Option
+      function ContestCard({ contest, onViewAnswerKey }) {
         const [isFlipped, setIsFlipped] = useState(false);
-
-        const renderActionButton = () => {
-          if (!currentUser) {
-            return (
-              <button
-                onClick={() => onApplyContest(contest)}
-                className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg hover:shadow-purple-600/50 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span>Apply Now</span>
-                <Icon name="ArrowRight" className="w-3.5 h-3.5" />
-              </button>
-            );
-          }
-
-          if (!userApp) {
-            return (
-              <button
-                onClick={() => onApplyContest(contest)}
-                className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg hover:shadow-purple-600/50 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span>Apply Now</span>
-                <Icon name="ArrowRight" className="w-3.5 h-3.5" />
-              </button>
-            );
-          }
-
-          if (userApp.status === 'Pending') {
-            return (
-              <div className="flex-1 py-2.5 px-3 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 font-extrabold text-[11px] flex items-center justify-center gap-1.5 text-center">
-                <Icon name="Clock" className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>Application Pending Review</span>
-              </div>
-            );
-          }
-
-          if (userApp.status === 'Accepted') {
-            return (
-              <div className="flex-1 py-2 px-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-extrabold text-xs flex flex-col items-center justify-center text-center">
-                <div className="flex items-center gap-1 text-emerald-400">
-                  <Icon name="CheckCircle2" className="w-4 h-4 text-emerald-400" />
-                  <span>Joined Successfully!</span>
-                </div>
-                <span className="text-[9px] text-emerald-200 font-medium">Exam details sent to your email</span>
-              </div>
-            );
-          }
-
-          if (userApp.status === 'Rejected') {
-            return (
-              <div className="flex-1 py-2.5 px-3 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-300 font-extrabold text-[11px] flex items-center justify-center gap-1 text-center">
-                <Icon name="X" className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>Application Declined</span>
-              </div>
-            );
-          }
-        };
+        const questionCount = Array.isArray(contest.questions) ? contest.questions.length : 0;
+        const duration = contest.duration || contest.limits || '60 Mins';
 
         return (
           <div className="w-full max-w-sm h-[495px] perspective-1000">
@@ -658,54 +629,53 @@
               {/* FRONT OF CARD */}
               <div className="absolute inset-0 backface-hidden w-full h-full bg-slate-900/95 border border-slate-800 rounded-3xl overflow-hidden flex flex-col justify-between shadow-2xl hover:border-purple-500/50 transition-all group">
                 <div>
-                  {/* Contest Image */}
+                  {/* Test Image */}
                   <div className="h-44 w-full relative overflow-hidden bg-slate-800">
                     <img src={contest.image} alt={contest.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     
                     <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                      {userApp && userApp.status === 'Accepted' && (
-                        <div className="px-3 py-1 rounded-xl text-[10px] font-extrabold uppercase bg-emerald-600 text-white shadow-lg flex items-center gap-1">
-                          <Icon name="CheckCircle2" className="w-3 h-3" />
-                          <span>Accepted</span>
-                        </div>
-                      )}
                       <div className="px-3 py-1 rounded-xl text-[10px] font-extrabold uppercase bg-purple-600 text-white shadow-lg">
                         {contest.status || 'Active'}
                       </div>
+                    </div>
+
+                    <div className="absolute bottom-3 left-3 px-3 py-1 rounded-xl text-[10px] font-extrabold bg-slate-950/80 text-amber-300 backdrop-blur-md border border-slate-700">
+                      ⏱️ {duration}
                     </div>
                   </div>
 
                   {/* Content Preview */}
                   <div className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-black text-purple-300 bg-purple-950/80 px-2.5 py-1 rounded-xl border border-purple-700/60">
+                        📝 {questionCount} Answer {questionCount === 1 ? 'Key' : 'Keys'}
+                      </span>
+                    </div>
+
                     <h3 className="text-xl font-bold text-white mb-2 group-hover:text-purple-300 transition-colors line-clamp-1">
                       {contest.title}
                     </h3>
                     
-                    {userApp && userApp.status === 'Accepted' ? (
-                      <div className="mb-4 p-3 rounded-2xl bg-emerald-950/80 border border-emerald-500/60 text-xs font-semibold text-emerald-200 leading-relaxed">
-                        🎉 <strong className="text-white">Joined Successfully!</strong> The exam details will be sent to your email ({currentUser.contactEmail}). Thank you for applying!
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-300 leading-relaxed font-medium mb-4 line-clamp-2">
-                        {contest.description}
-                      </p>
-                    )}
-                    
-                    <div className="p-3 rounded-2xl bg-slate-800/90 border border-slate-700/80 text-xs font-semibold text-purple-300 flex items-center justify-between">
-                      <span className="text-slate-400">Limits:</span>
-                      <span className="font-mono text-[11px] text-amber-300">{contest.limits}</span>
-                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed font-medium mb-4 line-clamp-3">
+                      {contest.description}
+                    </p>
                   </div>
                 </div>
 
                 {/* Action Row */}
                 <div className="p-6 pt-0 flex items-center gap-2">
-                  {renderActionButton()}
+                  <button
+                    onClick={() => onViewAnswerKey(contest)}
+                    className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg hover:shadow-purple-600/50 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Icon name="Key" className="w-4 h-4" />
+                    <span>View Key</span>
+                  </button>
 
                   <button
                     onClick={() => setIsFlipped(true)}
                     className="py-3 px-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs border border-slate-700 transition-all cursor-pointer flex items-center gap-1"
-                    title="Click to Flip & View Details"
+                    title="Click to view full exam details"
                   >
                     <Icon name="RotateCcw" className="w-3.5 h-3.5 text-purple-400" />
                     <span>Details 🔄</span>
@@ -713,41 +683,41 @@
                 </div>
               </div>
 
-              {/* BACK OF CARD (FLIPPED VIEW WITH FULL ADMIN DETAILS) */}
+              {/* BACK OF CARD (FLIPPED VIEW WITH FULL EXAM DETAILS) */}
               <div className="absolute inset-0 backface-hidden rotate-y-180 w-full h-full bg-slate-900 border-2 border-purple-500/80 rounded-3xl p-6 flex flex-col justify-between shadow-2xl text-white">
                 <div>
                   <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Admin Contest Details</span>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Exam Overview & Rules</span>
                     <span className="px-2.5 py-0.5 rounded-lg bg-purple-900/80 text-purple-200 text-[10px] font-bold border border-purple-700">Verified</span>
                   </div>
 
                   <h3 className="text-lg font-black text-white mb-2">{contest.title}</h3>
-                  
-                  {userApp && userApp.status === 'Accepted' && (
-                    <div className="mb-3 p-3 rounded-2xl bg-emerald-950/90 border border-emerald-500/70 text-xs font-bold text-emerald-300">
-                      ✅ Exam details will be sent to your email ({currentUser.contactEmail}). Thank you for applying!
-                    </div>
-                  )}
 
-                  <div className="text-xs text-slate-300 leading-relaxed font-medium mb-4 max-h-36 overflow-y-auto pr-1">
-                    <div className="font-bold text-slate-200 mb-1">Rules & Overview:</div>
+                  <div className="text-xs text-slate-300 leading-relaxed font-medium mb-4 max-h-40 overflow-y-auto pr-1">
+                    <div className="font-bold text-slate-200 mb-1">Details & Overview:</div>
                     {contest.description}
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-purple-950/60 border border-purple-800 text-xs font-semibold text-purple-200 space-y-1">
+                  <div className="p-3 rounded-2xl bg-purple-950/60 border border-purple-800 text-xs font-semibold text-purple-200 space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-purple-400">Limit Rules:</span>
-                      <span className="font-mono text-amber-300">{contest.limits}</span>
+                      <span className="text-purple-400">Time Duration:</span>
+                      <span className="font-mono text-amber-300 font-bold">{duration}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-400">Organizer:</span>
-                      <span className="text-white font-bold">Admin Panel</span>
+                      <span className="text-purple-400">Answer Keys Included:</span>
+                      <span className="text-white font-bold">{questionCount} Questions</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-3 border-t border-slate-800 flex items-center gap-2">
-                  {renderActionButton()}
+                  <button
+                    onClick={() => onViewAnswerKey(contest)}
+                    className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Icon name="Key" className="w-4 h-4" />
+                    <span>View Key</span>
+                  </button>
 
                   <button
                     onClick={() => setIsFlipped(false)}
@@ -764,51 +734,168 @@
         );
       }
 
-      // NEW HOME SECTION: Live Admin-Set Contests Section (AUTO-CENTERED LAYOUT)
-      function ContestsSection({ contests, currentUser, applications, onApplyContest }) {
+      // HOME SECTION: Live Tests & Exam Answer Keys Section
+      function ContestsSection({ contests, onViewAnswerKey }) {
         return (
-          <section className="py-16 bg-gradient-to-b from-slate-900 via-purple-950 to-slate-950 text-white relative overflow-hidden">
+          <section id="live-tests" className="py-16 bg-gradient-to-b from-slate-900 via-purple-950 to-slate-950 text-white relative overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               
               <div className="text-center max-w-2xl mx-auto mb-12">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-bold mb-3">
                   <Icon name="Trophy" className="w-4 h-4 text-amber-400" />
-                  <span>Admin Set Competitions</span>
+                  <span>Admin Set Exam Keys</span>
                 </div>
                 <h2 className="text-3xl sm:text-5xl font-black mb-3">
-                  Live Developer <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-sky-400">Contests</span>
+                  Live Tests & <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-sky-400">Answer Keys</span>
                 </h2>
                 <p className="text-sm sm:text-base text-slate-300 font-medium">
-                  Compete in live coding challenges set by admins. Click any card to smoothly rotate and view full details!
+                  Access live exam answer keys set by admins. Click 'View Key' to see questions and copy answers with one click!
                 </p>
               </div>
 
               {contests.length > 0 ? (
-                /* Auto-centered flex container for 1, 2, or multiple contests */
+                /* Auto-centered flex container */
                 <div className="flex flex-wrap justify-center items-center gap-8 max-w-6xl mx-auto">
-                  {contests.map((contest) => {
-                    const userApp = currentUser ? applications.find(a => a.contestId === contest.id && a.contactEmail && a.contactEmail.toLowerCase() === currentUser.contactEmail.toLowerCase()) : null;
-                    return (
-                      <ContestCard
-                        key={contest.id}
-                        contest={contest}
-                        currentUser={currentUser}
-                        userApp={userApp}
-                        onApplyContest={onApplyContest}
-                      />
-                    );
-                  })}
+                  {contests.map((contest) => (
+                    <ContestCard
+                      key={contest.id}
+                      contest={contest}
+                      onViewAnswerKey={onViewAnswerKey}
+                    />
+                  ))}
                 </div>
               ) : (
                 <div className="p-12 text-center bg-slate-900/50 rounded-3xl border border-slate-800 max-w-xl mx-auto">
                   <Icon name="Trophy" className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                  <div className="text-slate-300 font-bold text-base">No active contests at the moment</div>
-                  <div className="text-xs text-slate-500 mt-1">Admin will post new contests shortly. Check back soon!</div>
+                  <div className="text-slate-300 font-bold text-base">No active live tests at the moment</div>
+                  <div className="text-xs text-slate-500 mt-1">Admin will publish new live tests with answer keys shortly. Check back soon!</div>
                 </div>
               )}
 
             </div>
           </section>
+        );
+      }
+
+      // Modal Component for Viewing Exam Questions & Answer Keys with Copy Button
+      function ViewAnswerKeyModal({ test, onClose, addToast }) {
+        const [copiedIndex, setCopiedIndex] = useState(null);
+
+        if (!test) return null;
+        const questions = Array.isArray(test.questions) ? test.questions : [];
+
+        const handleCopyAnswer = (answerText, index) => {
+          if (!answerText) return;
+          navigator.clipboard.writeText(answerText);
+          setCopiedIndex(index);
+          addToast(`Question #${index + 1} answer copied to clipboard!`, 'success');
+          setTimeout(() => {
+            setCopiedIndex(null);
+          }, 2500);
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <div className="relative w-full max-w-3xl bg-slate-900 border border-purple-500/40 rounded-3xl shadow-2xl p-6 sm:p-8 max-h-[90vh] flex flex-col justify-between text-white">
+              
+              {/* Header */}
+              <div>
+                <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400">
+                      <Icon name="Key" className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase text-purple-400 tracking-wider">Exam Answer Key</span>
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                          ⏱️ {test.duration || test.limits || '60 Mins'}
+                        </span>
+                      </div>
+                      <h3 className="text-xl font-black text-white">{test.title}</h3>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={onClose}
+                    className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+                  >
+                    <Icon name="X" className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Exam Overview */}
+                {test.description && (
+                  <div className="mb-6 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 text-xs font-medium text-slate-300 leading-relaxed">
+                    <strong className="text-white block mb-1">Details & Rules:</strong>
+                    {test.description}
+                  </div>
+                )}
+              </div>
+
+              {/* Questions & Answer Keys List */}
+              <div className="flex-1 overflow-y-auto space-y-6 pr-2 mb-4">
+                {questions.length > 0 ? (
+                  questions.map((q, idx) => (
+                    <div key={q.id || idx} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 shadow-md">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <span className="px-2.5 py-1 rounded-xl bg-purple-900/80 text-purple-200 text-xs font-mono font-black border border-purple-700 shrink-0">
+                            Q{idx + 1}
+                          </span>
+                          <h4 className="text-sm font-bold text-white leading-snug pt-0.5">{q.questionText}</h4>
+                        </div>
+
+                        {/* Copy Answer Button */}
+                        <button
+                          onClick={() => handleCopyAnswer(q.answerText, idx)}
+                          className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                            copiedIndex === idx
+                              ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg scale-105'
+                              : 'bg-slate-800 hover:bg-purple-600 text-purple-300 hover:text-white border-slate-700 hover:border-purple-500'
+                          }`}
+                        >
+                          {copiedIndex === idx ? (
+                            <>
+                              <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                              <span>Copied! ✓</span>
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="Copy" className="w-3.5 h-3.5" />
+                              <span>Copy Answer</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Answer Key Content */}
+                      <div className="relative group">
+                        <pre className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono text-cyan-200 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                          {q.answerText}
+                        </pre>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 text-center text-slate-500 font-medium text-xs">
+                    No answer keys specified for this exam yet.
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-4 border-t border-slate-800 flex items-center justify-end">
+                <button
+                  onClick={onClose}
+                  className="px-6 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-extrabold cursor-pointer"
+                >
+                  Close Key Window
+                </button>
+              </div>
+
+            </div>
+          </div>
         );
       }
 
@@ -872,17 +959,23 @@
         );
       }
 
-      // RepositoryHub Component
-      function RepositoryHub({ repositories, questions, onSelectRepo }) {
+      // RepositoryHub Component (Level 1: Repositories List)
+      function RepositoryHub({ repositories, subfolders, questions, onSelectRepo }) {
         const [selectedCategory, setSelectedCategory] = useState('All');
         const [searchQuery, setSearchQuery] = useState('');
         const [sortBy, setSortBy] = useState('newest');
 
         const categories = useMemo(() => ['All', 'C / C++', 'Python', 'Java'], []);
 
+        const repoSubfolderCounts = useMemo(() => {
+          const counts = {};
+          (subfolders || []).forEach(sf => { counts[sf.repositoryId] = (counts[sf.repositoryId] || 0) + 1; });
+          return counts;
+        }, [subfolders]);
+
         const repoQuestionCounts = useMemo(() => {
           const counts = {};
-          questions.forEach(q => { counts[q.repositoryId] = (counts[q.repositoryId] || 0) + 1; });
+          (questions || []).forEach(q => { counts[q.repositoryId] = (counts[q.repositoryId] || 0) + 1; });
           return counts;
         }, [questions]);
 
@@ -894,7 +987,7 @@
                                   repo.category.toLowerCase().includes(searchQuery.toLowerCase());
             return matchesCategory && matchesSearch && repo.visibility !== 'Draft';
           }).sort((a, b) => {
-            if (sortBy === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
+            if (sortBy === 'newest') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
             if (sortBy === 'questions') return (repoQuestionCounts[b.id] || 0) - (repoQuestionCounts[a.id] || 0);
             if (sortBy === 'title') return a.title.localeCompare(b.title);
             return 0;
@@ -905,6 +998,10 @@
           <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
               <div>
+                <div className="flex items-center gap-2 text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">
+                  <Icon name="FolderGit2" className="w-4 h-4" />
+                  <span>Public Code Workspaces</span>
+                </div>
                 <h2 className="text-3xl sm:text-4xl font-black text-slate-900">
                   Repository <span className="gradient-text-purple">Collection</span>
                 </h2>
@@ -942,345 +1039,254 @@
 
             {filteredRepos.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredRepos.map((repo) => (
-                  <div key={repo.id} onClick={() => onSelectRepo(repo)} className="glass-card p-6 rounded-3xl cursor-pointer flex flex-col justify-between group">
-                    <div>
-                      <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
-                        {repo.category}
-                      </span>
-                      <h3 className="text-xl font-bold text-slate-900 mt-4 mb-2 group-hover:text-purple-700 transition-colors line-clamp-2">
-                        {repo.title}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-slate-600 line-clamp-3 mb-6 font-medium">{repo.description}</p>
+                {filteredRepos.map((repo) => {
+                  const sfCount = repoSubfolderCounts[repo.id] || 0;
+                  const qCount = repoQuestionCounts[repo.id] || 0;
+                  return (
+                    <div
+                      key={repo.id}
+                      onClick={() => onSelectRepo(repo)}
+                      className="glass-card p-6 rounded-3xl cursor-pointer flex flex-col justify-between group hover:border-purple-300 transition-all shadow-sm"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                            {repo.category}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                            <Icon name="Folder" className="w-3 h-3 text-indigo-500" />
+                            {sfCount} {sfCount === 1 ? 'Folder' : 'Folders'}
+                          </span>
+                        </div>
+
+                        <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-purple-700 transition-colors line-clamp-2">
+                          {repo.title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-600 line-clamp-3 mb-6 font-medium leading-relaxed">
+                          {repo.description}
+                        </p>
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-purple-700 font-extrabold">
+                        <span className="flex items-center gap-1">
+                          <Icon name="HelpCircle" className="w-3.5 h-3.5 text-sky-600" />
+                          {qCount} Q&A Solutions
+                        </span>
+                        <span className="group-hover:translate-x-1 transition-transform">Explore Subfolders &rarr;</span>
+                      </div>
                     </div>
-                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-purple-700 font-extrabold">
-                      <span>Explore Repo &rarr;</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm">
-                <div className="text-slate-900 font-bold">No repositories found</div>
+              <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto">
+                <Icon name="FolderGit2" className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <div className="text-slate-900 font-bold text-base">No repositories found</div>
+                <p className="text-xs text-slate-500 mt-1">Try selecting another category or clear your search term.</p>
               </div>
             )}
           </section>
         );
       }
 
-      // RepositoryDetailView Component
-      function RepositoryDetailView({ repo, questions, onBack, addToast, initialQuestionId }) {
-        const repoQuestions = questions.filter(q => q.repositoryId === repo.id);
-        const [expandedQuestionId, setExpandedQuestionId] = useState(initialQuestionId || (repoQuestions[0] ? repoQuestions[0].id : null));
+      // RepositoryDetailView Component (Level 2: Subfolders Grid & Level 3: Questions & Solutions inside Subfolder)
+      function RepositoryDetailView({ repo, subfolders, questions, onBack, addToast }) {
+        const [selectedSubfolder, setSelectedSubfolder] = useState(null);
         const [copiedId, setCopiedId] = useState(null);
 
-        useEffect(() => {
-          if (window.Prism) window.Prism.highlightAll();
-        }, [expandedQuestionId]);
+        const repoSubfolders = useMemo(() => {
+          return (subfolders || []).filter(sf => sf.repositoryId === repo.id);
+        }, [subfolders, repo.id]);
 
         const handleCopyCode = (codeText, questionId) => {
+          if (!codeText) return;
           navigator.clipboard.writeText(codeText);
           setCopiedId(questionId);
           if (addToast) addToast('Code snippet copied to clipboard!', 'success');
           setTimeout(() => setCopiedId(null), 2000);
         };
 
+        // Level 3: Questions List inside Selected Subfolder
+        if (selectedSubfolder) {
+          const subfolderQuestions = questions.filter(q => q.subfolderId === selectedSubfolder.id);
+
+          return (
+            <section className="py-8 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+              {/* Breadcrumb Trail */}
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-6 flex-wrap">
+                <button onClick={onBack} className="hover:text-purple-700 flex items-center gap-1">
+                  <Icon name="FolderGit2" className="w-3.5 h-3.5" /> Workspace
+                </button>
+                <span>/</span>
+                <button onClick={() => setSelectedSubfolder(null)} className="hover:text-purple-700">
+                  {repo.title}
+                </button>
+                <span>/</span>
+                <span className="text-purple-700 flex items-center gap-1">
+                  <Icon name="Folder" className="w-3.5 h-3.5" /> {selectedSubfolder.folderName}
+                </span>
+              </div>
+
+              {/* Subfolder Header Card */}
+              <div className="glass-panel p-6 sm:p-8 rounded-3xl mb-8 bg-white shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <button
+                      onClick={() => setSelectedSubfolder(null)}
+                      className="p-2 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold hover:bg-purple-100 transition-all flex items-center gap-1"
+                    >
+                      <Icon name="ArrowLeft" className="w-3.5 h-3.5" /> Back to Subfolders
+                    </button>
+                    <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      Subfolder View
+                    </span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900">{selectedSubfolder.folderName}</h1>
+                  {selectedSubfolder.description && (
+                    <p className="text-sm text-slate-600 font-medium mt-1">{selectedSubfolder.description}</p>
+                  )}
+                </div>
+
+                <div className="px-4 py-2.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-extrabold flex items-center gap-2 shrink-0">
+                  <Icon name="HelpCircle" className="w-4 h-4 text-purple-600" />
+                  <span>{subfolderQuestions.length} Solution {subfolderQuestions.length === 1 ? 'Entry' : 'Entries'}</span>
+                </div>
+              </div>
+
+              {/* Questions & Solutions List */}
+              {subfolderQuestions.length > 0 ? (
+                <div className="space-y-6">
+                  {subfolderQuestions.map((q, idx) => (
+                    <div key={q.id || idx} className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm p-6 space-y-4">
+                      <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
+                        <div className="flex items-start gap-3">
+                          <span className="px-2.5 py-1 rounded-xl bg-purple-100 text-purple-800 text-xs font-mono font-black border border-purple-200 shrink-0">
+                            Q{idx + 1}
+                          </span>
+                          <div>
+                            <h3 className="text-lg font-bold text-slate-900 leading-snug">{q.questionTitle}</h3>
+                            {q.explanation && (
+                              <p className="text-xs text-slate-600 font-medium mt-1 leading-relaxed">{q.explanation}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-mono font-black uppercase px-3 py-1 bg-slate-100 text-slate-700 rounded-xl border border-slate-200">
+                            {q.language || 'Code'}
+                          </span>
+
+                          <button
+                            onClick={() => handleCopyCode(q.codeSnippet, q.id)}
+                            className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs border transition-all cursor-pointer flex items-center gap-1.5 ${
+                              copiedId === q.id
+                                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md scale-105'
+                                : 'bg-slate-900 hover:bg-purple-600 text-white border-slate-800 hover:border-purple-500'
+                            }`}
+                          >
+                            {copiedId === q.id ? (
+                              <>
+                                <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                                <span>Copied! ✓</span>
+                              </>
+                            ) : (
+                              <>
+                                <Icon name="Copy" className="w-3.5 h-3.5" />
+                                <span>Copy Code</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Code Snippet Container */}
+                      <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-[#0f172a] p-4">
+                        <pre className="text-xs font-mono text-cyan-200 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                          {q.codeSnippet}
+                        </pre>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto">
+                  <Icon name="Folder" className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <div className="text-slate-900 font-bold text-base">No questions added to this subfolder yet</div>
+                  <p className="text-xs text-slate-500 mt-1">Admin will publish questions and answers inside this folder soon.</p>
+                </div>
+              )}
+            </section>
+          );
+        }
+
+        // Level 2: Subfolders Grid inside Selected Repository
         return (
           <section className="py-8 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <button onClick={onBack} className="flex items-center gap-1 text-xs font-bold text-slate-500 mb-6 hover:text-purple-700">
-              <Icon name="ArrowLeft" className="w-3.5 h-3.5" /> Back to Repositories
-            </button>
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-6">
+              <button onClick={onBack} className="hover:text-purple-700 flex items-center gap-1">
+                <Icon name="ArrowLeft" className="w-3.5 h-3.5" /> Back to Repositories
+              </button>
+              <span>/</span>
+              <span className="text-purple-700 font-extrabold">{repo.title}</span>
+            </div>
 
+            {/* Repository Overview Header */}
             <div className="glass-panel p-6 sm:p-8 rounded-3xl mb-8 bg-white shadow-sm border border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                  {repo.category}
+                </span>
+                <span className="px-3 py-1 rounded-xl text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                  {repoSubfolders.length} {repoSubfolders.length === 1 ? 'Subfolder' : 'Subfolders'}
+                </span>
+              </div>
               <h1 className="text-2xl sm:text-4xl font-black text-slate-900 mb-2">{repo.title}</h1>
               <p className="text-sm text-slate-600 font-medium">{repo.description}</p>
             </div>
 
-            <div className="space-y-4">
-              {repoQuestions.map((q, idx) => {
-                const isExpanded = expandedQuestionId === q.id;
-                return (
-                  <div key={q.id} className="rounded-3xl border bg-white border-slate-200 overflow-hidden">
-                    <div onClick={() => setExpandedQuestionId(isExpanded ? null : q.id)} className="p-5 flex items-center justify-between cursor-pointer">
-                      <h3 className="text-base font-bold text-slate-900">{q.questionTitle}</h3>
-                      <span className="text-xs font-mono font-bold uppercase px-3 py-1 bg-slate-100 rounded-lg">{q.language}</span>
-                    </div>
+            {/* Subfolders Grid */}
+            <h3 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
+              <Icon name="Folder" className="w-5 h-5 text-indigo-600" />
+              <span>Select Subfolder to View Questions & Answers</span>
+            </h3>
 
-                    {isExpanded && (
-                      <div className="p-5 pt-0 border-t border-slate-100 bg-slate-50/50 space-y-4">
-                        {q.explanation && <p className="text-sm text-slate-700 font-medium pt-3">{q.explanation}</p>}
-                        <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-[#0f172a] p-4">
-                          <button onClick={() => handleCopyCode(q.codeSnippet, q.id)} className="absolute top-3 right-3 px-3 py-1 bg-slate-800 text-white rounded-xl text-xs font-bold">
-                            {copiedId === q.id ? 'Copied!' : 'Copy Code'}
-                          </button>
-                          <pre><code className={`language-${q.language || 'javascript'}`}>{q.codeSnippet}</code></pre>
+            {repoSubfolders.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                {repoSubfolders.map((sf) => {
+                  const qCount = questions.filter(q => q.subfolderId === sf.id).length;
+                  return (
+                    <div
+                      key={sf.id}
+                      onClick={() => setSelectedSubfolder(sf)}
+                      className="p-6 rounded-3xl bg-white border border-slate-200 hover:border-indigo-400 shadow-sm cursor-pointer hover:shadow-md transition-all flex flex-col justify-between group"
+                    >
+                      <div>
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <Icon name="Folder" className="w-6 h-6" />
                         </div>
+                        <h4 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">
+                          {sf.folderName}
+                        </h4>
+                        <p className="text-xs text-slate-500 font-medium line-clamp-2 mb-4">
+                          {sf.description || 'Contains code questions and solutions.'}
+                        </p>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-      }
 
-      // Multi-Language Code Compiler Engine with Piston API & HTML Live Render
-      const STARTER_TEMPLATES = {
-        c: `#include <stdio.h>\n\nint main()\n{\n    int marks = 85;\n    printf("C Execution Engine\\n");\n    printf("Student Marks: %d\\n", marks);\n    if (marks >= 75) {\n        printf("Result: Distinction\\n");\n    } else if (marks >= 40) {\n        printf("Result: Pass\\n");\n    } else {\n        printf("Result: Fail\\n");\n    }\n    return 0;\n}`,
-
-        cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    int num1 = 15, num2 = 25;\n    int sum = num1 + num2;\n    cout << "C++ Compiler Engine (G++)" << endl;\n    cout << "Sum of " << num1 << " + " << num2 << " = " << sum << endl;\n    return 0;\n}`,
-
-        python: `# Python 3.10 Interactive Sandbox\ndef calculate_grade(marks):\n    if marks >= 75:\n        return "Distinction"\n    elif marks >= 40:\n        return "Pass"\n    else:\n        return "Fail"\n\nstudent_marks = 85\nprint("Python 3 Engine Active")\nprint(f"Student Marks: {student_marks}")\nprint(f"Grade Result: {calculate_grade(student_marks)}")\n`,
-
-        java: `public class Main {\n    public static void main(String[] args) {\n        int marks = 85;\n        System.out.println("Java Sandbox Execution Engine");\n        System.out.println("Student Marks: " + marks);\n        if (marks >= 75) {\n            System.out.println("Grade: Distinction");\n        } else {\n            System.out.println("Grade: Pass");\n        }\n    }\n}`,
-
-        html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: 'Inter', system-ui, sans-serif; text-align: center; padding: 40px; background: #0f172a; color: #fff; }\n    .badge { background: #7c3aed; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; }\n    .btn { background: linear-gradient(135deg, #7c3aed, #db2777); color: #fff; border: none; padding: 12px 24px; border-radius: 14px; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 14px; transition: transform 0.2s; }\n    .btn:hover { transform: scale(1.05); }\n  </style>\n</head>\n<body>\n  <span className="badge">Hoot Miner Live HTML</span>\n  <h1 style="margin-top: 15px;">⚡ Interactive Web Sandbox</h1>\n  <p style="color: #94a3b8; font-size: 14px;">Modify the HTML/CSS/JS on the left to see live rendering!</p>\n  <button class="btn" onclick="alert('Hello from Hoot Miner Sandbox!')">Click Live Button</button>\n</body>\n</html>`
-      };
-
-      const PISTON_LANG_MAP = {
-        c: 'c',
-        cpp: 'cpp',
-        python: 'python',
-        java: 'java'
-      };
-
-      function CodeCompiler({ addToast }) {
-        const [selectedLang, setSelectedLang] = useState('c');
-        const [code, setCode] = useState(STARTER_TEMPLATES['c']);
-        const [stdin, setStdin] = useState('');
-        const [output, setOutput] = useState('');
-        const [isExecuting, setIsExecuting] = useState(false);
-        const [executionTime, setExecutionTime] = useState(null);
-
-        const handleLanguageChange = (langKey) => {
-          setSelectedLang(langKey);
-          setCode(STARTER_TEMPLATES[langKey]);
-          setOutput('');
-          setExecutionTime(null);
-          if (addToast) addToast(`Switched compiler to ${langKey.toUpperCase()}`, 'info');
-        };
-
-        const handleResetCode = () => {
-          setCode(STARTER_TEMPLATES[selectedLang]);
-          setOutput('');
-          setExecutionTime(null);
-          if (addToast) addToast('Reset code to default template', 'info');
-        };
-
-        const handleRunCode = async () => {
-          if (selectedLang === 'html') {
-            setOutput('HTML Live Rendering Active');
-            if (addToast) addToast('HTML Live Preview Updated', 'success');
-            return;
-          }
-
-          setIsExecuting(true);
-          setOutput(`Compiling & Executing ${selectedLang.toUpperCase()} source code...\n`);
-          const startTime = Date.now();
-
-          try {
-            const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                language: PISTON_LANG_MAP[selectedLang],
-                version: '*',
-                files: [{ content: code }],
-                stdin: stdin
-              })
-            });
-
-            const data = await response.json();
-            const elapsed = Date.now() - startTime;
-            setExecutionTime(elapsed);
-
-            if (data && data.run) {
-              const runOutput = data.run.output || data.run.stdout || data.run.stderr || 'Program executed with no output.';
-              setOutput(runOutput);
-              if (data.run.code === 0) {
-                if (addToast) addToast(`Execution successful (${elapsed}ms)`, 'success');
-              } else {
-                if (addToast) addToast('Compilation / Runtime error detected', 'error');
-              }
-            } else {
-              throw new Error('Invalid response from execution engine');
-            }
-          } catch (err) {
-            console.warn("Piston API execution fallback:", err);
-            const elapsed = Date.now() - startTime;
-            setExecutionTime(elapsed);
-            
-            // Intelligent fallback output preview for offline testing
-            let simulatedOutput = '';
-            if (selectedLang === 'c') simulatedOutput = 'C Execution Engine\nStudent Marks: 85\nResult: Distinction\n\nProcess finished with exit code 0';
-            else if (selectedLang === 'cpp') simulatedOutput = 'C++ Compiler Engine (G++)\nSum of 15 + 25 = 40\n\nProcess finished with exit code 0';
-            else if (selectedLang === 'python') simulatedOutput = 'Python 3 Engine Active\nStudent Marks: 85\nGrade Result: Distinction\n\nProcess finished with exit code 0';
-            else if (selectedLang === 'java') simulatedOutput = 'Java Sandbox Execution Engine\nStudent Marks: 85\nGrade Result: Distinction\n\nProcess finished with exit code 0';
-
-            setOutput(simulatedOutput);
-            if (addToast) addToast(`Executed (${elapsed}ms)`, 'success');
-          } finally {
-            setIsExecuting(false);
-          }
-        };
-
-        return (
-          <section className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 font-sans">
-            
-            {/* Compiler Header Bar with Language Selector Tabs */}
-            <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold">
-                  <Icon name="Code2" className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900">Multi-Language Online Compiler</h2>
-                  <div className="text-xs text-slate-500 font-medium">GCC, G++, Python 3, Java & HTML Live Preview</div>
-                </div>
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-indigo-700 font-extrabold">
+                        <span>{qCount} Questions</span>
+                        <span className="group-hover:translate-x-1 transition-transform">Open Folder &rarr;</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              {/* Language Selector Buttons */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-                <button
-                  onClick={() => handleLanguageChange('c')}
-                  className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                    selectedLang === 'c' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  🔵 C (GCC)
-                </button>
-
-                <button
-                  onClick={() => handleLanguageChange('cpp')}
-                  className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                    selectedLang === 'cpp' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  🟣 C++ (G++)
-                </button>
-
-                <button
-                  onClick={() => handleLanguageChange('python')}
-                  className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                    selectedLang === 'python' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  🐍 Python 3
-                </button>
-
-                <button
-                  onClick={() => handleLanguageChange('java')}
-                  className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                    selectedLang === 'java' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  ☕ Java
-                </button>
-
-                <button
-                  onClick={() => handleLanguageChange('html')}
-                  className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                    selectedLang === 'html' ? 'bg-pink-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  🌐 HTML Live
-                </button>
+            ) : (
+              <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto">
+                <Icon name="Folder" className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <div className="text-slate-900 font-bold text-base">No subfolders created in this repository yet</div>
+                <p className="text-xs text-slate-500 mt-1">Admin will add subfolders to organize questions for this repository.</p>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleResetCode}
-                  className="px-3.5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
-                  title="Reset Code Template"
-                >
-                  Reset Template
-                </button>
-
-                <button
-                  onClick={handleRunCode}
-                  disabled={isExecuting}
-                  className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-extrabold shadow-md hover:shadow-emerald-600/40 transition-all cursor-pointer flex items-center gap-2"
-                >
-                  <Icon name="Play" className="w-4 h-4 fill-white" />
-                  <span>{isExecuting ? 'Running...' : 'Run Code'}</span>
-                </button>
-              </div>
-
-            </div>
-
-            {/* Main Code Editor & Output Pane */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* Left Code Editor Pane */}
-              <div className="bg-[#0f172a] rounded-3xl border border-slate-800 overflow-hidden shadow-2xl flex flex-col justify-between">
-                <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-rose-500"></span>
-                    <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-                    <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-                    <span className="ml-2 font-mono text-xs text-slate-400 font-bold uppercase">{selectedLang} Editor</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-purple-400 font-bold uppercase">Source Code</span>
-                </div>
-
-                <div className="p-4 flex-1">
-                  <textarea
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    rows={16}
-                    className="w-full h-full bg-transparent text-cyan-200 font-mono text-xs focus:outline-none resize-none leading-relaxed"
-                    placeholder="Write your code here..."
-                  />
-                </div>
-
-                {/* Stdin Box if non-HTML */}
-                {selectedLang !== 'html' && (
-                  <div className="p-4 bg-slate-900/90 border-t border-slate-800">
-                    <label className="block text-[11px] font-mono font-bold text-slate-400 uppercase mb-1">Standard Input (stdin):</label>
-                    <input
-                      type="text"
-                      value={stdin}
-                      onChange={(e) => setStdin(e.target.value)}
-                      placeholder="Optional inputs..."
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl font-mono text-xs text-slate-200 focus:outline-none"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Right Output Pane / HTML Live View */}
-              <div className="bg-[#0d1117] rounded-3xl border border-slate-800 overflow-hidden shadow-2xl flex flex-col justify-between">
-                <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon name="Terminal" className="w-4 h-4 text-emerald-400" />
-                    <span className="font-mono text-xs text-emerald-400 font-bold uppercase">
-                      {selectedLang === 'html' ? 'HTML Live Preview Window' : 'Console Terminal Output'}
-                    </span>
-                  </div>
-                  {executionTime && (
-                    <span className="text-[10px] font-mono text-slate-400">{executionTime}ms</span>
-                  )}
-                </div>
-
-                <div className="p-4 flex-1 min-h-[360px] flex flex-col">
-                  {selectedLang === 'html' ? (
-                    <iframe
-                      title="HTML Preview"
-                      srcDoc={code}
-                      className="w-full h-full min-h-[350px] bg-white rounded-2xl border border-slate-700"
-                    />
-                  ) : (
-                    <pre className="w-full h-full text-emerald-400 font-mono text-xs whitespace-pre-wrap leading-relaxed overflow-y-auto">
-                      {output || 'Click "Run Code" to compile and execute program...'}
-                    </pre>
-                  )}
-                </div>
-              </div>
-
-            </div>
+            )}
           </section>
         );
       }
@@ -1301,6 +1307,7 @@
         const [activeTab, setActiveTab] = useState('home');
         const [selectedRepo, setSelectedRepo] = useState(null);
         const [repositories, setRepositories] = useState([]);
+        const [subfolders, setSubfolders] = useState([]);
         const [questions, setQuestions] = useState([]);
         const [contests, setContests] = useState([]);
         const [applications, setApplications] = useState([]);
@@ -1320,6 +1327,7 @@
         const [loginError, setLoginError] = useState('');
         const [loginLoading, setLoginLoading] = useState(false);
 
+        const [viewingTestKey, setViewingTestKey] = useState(null);
         const [applyContestModal, setApplyContestModal] = useState(null);
 
         // Contest Application Form State (Auto-filled if currentUser logged in)
@@ -1370,10 +1378,12 @@
           if (window.HootDB) {
             await window.HootDB.seedInitialDataIfNeeded();
             const repos = await window.HootDB.fetchRepositories();
+            const sfList = await window.HootDB.fetchSubfolders ? await window.HootDB.fetchSubfolders() : [];
             const qList = await window.HootDB.fetchQuestions();
             const cList = await window.HootDB.fetchContests();
             const aList = await window.HootDB.fetchContestApplications();
             setRepositories(repos);
+            setSubfolders(sfList);
             setQuestions(qList);
             setContests(cList);
             setApplications(aList);
@@ -1384,12 +1394,16 @@
           loadData();
           if (window.HootDB) {
             const unsub1 = window.HootDB.subscribeToRepositories((r) => setRepositories(r));
-            const unsub2 = window.HootDB.subscribeToContests((c) => setContests(c));
-            const unsub3 = window.HootDB.subscribeToApplications ? window.HootDB.subscribeToApplications((a) => setApplications(a)) : null;
+            const unsub2 = window.HootDB.subscribeToSubfolders ? window.HootDB.subscribeToSubfolders((sf) => setSubfolders(sf)) : null;
+            const unsub3 = window.HootDB.subscribeToContests((c) => setContests(c));
+            const unsub4 = window.HootDB.subscribeToApplications ? window.HootDB.subscribeToApplications((a) => setApplications(a)) : null;
+            const unsub5 = window.HootDB.subscribeToQuestions ? window.HootDB.subscribeToQuestions((q) => setQuestions(q)) : null;
             return () => {
               if (typeof unsub1 === 'function') unsub1();
               if (typeof unsub2 === 'function') unsub2();
               if (typeof unsub3 === 'function') unsub3();
+              if (typeof unsub4 === 'function') unsub4();
+              if (typeof unsub5 === 'function') unsub5();
             };
           }
         }, []);
@@ -1455,17 +1469,16 @@
                 <>
                   <LandingHero
                     onLaunchWorkspace={() => setActiveTab('repos')}
-                    onOpenCompiler={() => setActiveTab('compiler')}
-                    repoCount={repositories.length}
-                    questionCount={questions.length}
+                    onOpenLiveTests={() => {
+                      const el = document.getElementById('live-tests');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
                   />
 
-                  {/* LIVE CONTESTS SECTION */}
+                  {/* LIVE TESTS & EXAM ANSWER KEYS SECTION */}
                   <ContestsSection
                     contests={contests}
-                    currentUser={currentUser}
-                    applications={applications}
-                    onApplyContest={handleOpenApplyModal}
+                    onViewAnswerKey={(test) => setViewingTestKey(test)}
                   />
 
                   <FeatureGrid />
@@ -1475,6 +1488,7 @@
               {activeTab === 'repos' && (
                 <RepositoryHub
                   repositories={repositories}
+                  subfolders={subfolders}
                   questions={questions}
                   onSelectRepo={(r) => { setSelectedRepo(r); setActiveTab('repo-detail'); }}
                 />
@@ -1483,13 +1497,12 @@
               {activeTab === 'repo-detail' && selectedRepo && (
                 <RepositoryDetailView
                   repo={selectedRepo}
+                  subfolders={subfolders}
                   questions={questions}
                   onBack={() => setActiveTab('repos')}
                   addToast={addToast}
                 />
               )}
-
-              {activeTab === 'compiler' && <CodeCompiler addToast={addToast} />}
             </main>
 
             <Footer />
@@ -1735,6 +1748,15 @@
                   </form>
                 </div>
               </div>
+            )}
+
+            {/* VIEW ANSWER KEY MODAL */}
+            {viewingTestKey && (
+              <ViewAnswerKeyModal
+                test={viewingTestKey}
+                onClose={() => setViewingTestKey(null)}
+                addToast={addToast}
+              />
             )}
 
           </div>

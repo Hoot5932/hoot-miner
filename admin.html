@@ -182,6 +182,52 @@
           return true;
         },
 
+        async fetchSubfolders() {
+          try {
+            const snapshot = await get(ref(rtdb, "subfolders"));
+            if (snapshot.exists()) return Object.values(snapshot.val());
+            return [];
+          } catch (err) {
+            const local = localStorage.getItem("hootminer_subfolders");
+            return local ? JSON.parse(local) : [];
+          }
+        },
+
+        async saveSubfolder(subfolder) {
+          const id = subfolder.id || `sf-${Date.now()}`;
+          const now = new Date().toISOString();
+          const sfData = { ...subfolder, id, folderName: subfolder.folderName.trim(), description: subfolder.description || '', createdAt: subfolder.createdAt || now, updatedAt: now };
+          try { await set(ref(rtdb, `subfolders/${id}`), sfData); } catch (err) { console.warn(err); }
+          const existing = await window.HootDB.fetchSubfolders();
+          const index = existing.findIndex((s) => s.id === id);
+          if (index >= 0) existing[index] = sfData; else existing.push(sfData);
+          localStorage.setItem("hootminer_subfolders", JSON.stringify(existing));
+          return sfData;
+        },
+
+        async deleteSubfolder(subfolderId) {
+          try {
+            await remove(ref(rtdb, `subfolders/${subfolderId}`));
+            const allQuestions = await window.HootDB.fetchQuestions();
+            const remainingQuestions = allQuestions.filter(q => q.subfolderId !== subfolderId);
+            const qMap = {};
+            remainingQuestions.forEach(q => { qMap[q.id] = q; });
+            await set(ref(rtdb, "questions_answers"), qMap);
+            localStorage.setItem("hootminer_questions", JSON.stringify(remainingQuestions));
+          } catch (err) { console.warn(err); }
+          const existing = await window.HootDB.fetchSubfolders();
+          const filtered = existing.filter((s) => s.id !== subfolderId);
+          localStorage.setItem("hootminer_subfolders", JSON.stringify(filtered));
+          return true;
+        },
+
+        subscribeToSubfolders(callback) {
+          return onValue(ref(rtdb, "subfolders"), (snapshot) => {
+            if (snapshot.exists()) callback(Object.values(snapshot.val()));
+            else callback([]);
+          });
+        },
+
         // --- CONTESTS HELPERS ---
         async fetchContests() {
           try {
@@ -276,6 +322,8 @@
           case 'Mail': return <svg {...svgProps}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>;
           case 'ArrowRight': return <svg {...svgProps}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>;
           case 'ArrowLeft': return <svg {...svgProps}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>;
+          case 'Folder': return <svg {...svgProps}><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"/></svg>;
+          case 'FolderPlus': return <svg {...svgProps}><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2z"/></svg>;
           case 'FolderGit2': return <svg {...svgProps}><path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5"/><circle cx="13" cy="12" r="2"/><path d="M18 19c-2.8 0-5-2.2-5-5v-2"/><circle cx="20" cy="19" r="2"/></svg>;
           case 'Trophy': return <svg {...svgProps}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>;
           case 'HelpCircle': return <svg {...svgProps}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>;
@@ -364,7 +412,7 @@
                   </div>
                 </div>
                 <h2 className="text-2xl font-black text-slate-900">Admin Authentication</h2>
-                <p className="text-xs text-slate-500 mt-1 font-medium">Sign in to manage repositories, Q&A entries, and contests.</p>
+                <p className="text-xs text-slate-500 mt-1 font-medium">Sign in to manage repositories, Q&A entries, and live exam answer keys.</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -403,16 +451,27 @@
         );
       }
 
-      // Complete Repository & Question/Answer Manager Component for Admin
-      function RepoManager({ repositories, questions, onRefresh, addToast }) {
+      // Complete 3-Tier Hierarchy Manager (Repository -> Subfolders -> Q&A)
+      function RepoManager({ repositories, subfolders, questions, onRefresh, addToast }) {
+        const [selectedRepo, setSelectedRepo] = useState(null);
+        const [selectedSubfolder, setSelectedSubfolder] = useState(null);
+
+        // Repo modal & form
         const [isRepoModalOpen, setIsRepoModalOpen] = useState(false);
         const [editingRepo, setEditingRepo] = useState(null);
         const [repoFormData, setRepoFormData] = useState({ title: '', category: 'C / C++', description: '', visibility: 'Published' });
 
+        // Subfolder modal & form
+        const [isSubfolderModalOpen, setIsSubfolderModalOpen] = useState(false);
+        const [editingSubfolder, setEditingSubfolder] = useState(null);
+        const [subfolderFormData, setSubfolderFormData] = useState({ repositoryId: '', folderName: '', description: '' });
+
+        // Question modal & form
         const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
         const [editingQuestion, setEditingQuestion] = useState(null);
         const [questionFormData, setQuestionFormData] = useState({
           repositoryId: '',
+          subfolderId: '',
           questionTitle: '',
           language: 'c',
           codeSnippet: '',
@@ -420,11 +479,12 @@
           displayOrder: 1
         });
 
-        const [selectedRepoForQuestions, setSelectedRepoForQuestions] = useState(null);
+        // Delete confirmations
         const [deleteConfirmRepo, setDeleteConfirmRepo] = useState(null);
+        const [deleteConfirmSubfolder, setDeleteConfirmSubfolder] = useState(null);
         const [deleteConfirmQuestion, setDeleteConfirmQuestion] = useState(null);
 
-        // Repo CRUD
+        // --- REPO HANDLERS ---
         const handleOpenCreateRepo = () => {
           setEditingRepo(null);
           setRepoFormData({ title: '', category: 'C / C++', description: '', visibility: 'Published' });
@@ -433,12 +493,7 @@
 
         const handleOpenEditRepo = (repo) => {
           setEditingRepo(repo);
-          setRepoFormData({
-            title: repo.title,
-            category: repo.category || 'C / C++',
-            description: repo.description || '',
-            visibility: repo.visibility || 'Published'
-          });
+          setRepoFormData({ title: repo.title, category: repo.category || 'C / C++', description: repo.description || '', visibility: repo.visibility || 'Published' });
           setIsRepoModalOpen(true);
         };
 
@@ -458,24 +513,74 @@
             await window.HootDB.deleteRepository(deleteConfirmRepo.id);
             addToast('Repository deleted', 'warning');
             setDeleteConfirmRepo(null);
-            if (selectedRepoForQuestions && selectedRepoForQuestions.id === deleteConfirmRepo.id) {
-              setSelectedRepoForQuestions(null);
+            if (selectedRepo && selectedRepo.id === deleteConfirmRepo.id) {
+              setSelectedRepo(null);
+              setSelectedSubfolder(null);
             }
             onRefresh();
           }
         };
 
-        // Question CRUD
-        const handleOpenAddQuestion = (repo) => {
+        // --- SUBFOLDER HANDLERS ---
+        const handleOpenAddSubfolder = (repo) => {
+          setEditingSubfolder(null);
+          setSubfolderFormData({
+            repositoryId: repo.id,
+            folderName: '',
+            description: ''
+          });
+          setIsSubfolderModalOpen(true);
+        };
+
+        const handleOpenEditSubfolder = (sf) => {
+          setEditingSubfolder(sf);
+          setSubfolderFormData({
+            repositoryId: sf.repositoryId,
+            folderName: sf.folderName,
+            description: sf.description || ''
+          });
+          setIsSubfolderModalOpen(true);
+        };
+
+        const handleSaveSubfolder = async (e) => {
+          e.preventDefault();
+          if (!subfolderFormData.folderName.trim()) {
+            addToast('Please enter a subfolder name', 'error');
+            return;
+          }
+          if (window.HootDB) {
+            await window.HootDB.saveSubfolder({ ...editingSubfolder, ...subfolderFormData });
+            addToast(editingSubfolder ? 'Subfolder updated' : 'New Subfolder created', 'success');
+            setIsSubfolderModalOpen(false);
+            onRefresh();
+          }
+        };
+
+        const handleDeleteSubfolder = async () => {
+          if (!deleteConfirmSubfolder) return;
+          if (window.HootDB) {
+            await window.HootDB.deleteSubfolder(deleteConfirmSubfolder.id);
+            addToast('Subfolder deleted', 'warning');
+            setDeleteConfirmSubfolder(null);
+            if (selectedSubfolder && selectedSubfolder.id === deleteConfirmSubfolder.id) {
+              setSelectedSubfolder(null);
+            }
+            onRefresh();
+          }
+        };
+
+        // --- QUESTION HANDLERS ---
+        const handleOpenAddQuestion = (repo, sf) => {
           setEditingQuestion(null);
-          const repoQuestions = questions.filter(q => q.repositoryId === repo.id);
+          const sfQuestions = questions.filter(q => q.subfolderId === sf.id);
           setQuestionFormData({
             repositoryId: repo.id,
+            subfolderId: sf.id,
             questionTitle: '',
             language: repo.category === 'Python' ? 'python' : repo.category === 'Java' ? 'java' : 'c',
             codeSnippet: '// Write code solution here...\n',
             explanation: '',
-            displayOrder: repoQuestions.length + 1
+            displayOrder: sfQuestions.length + 1
           });
           setIsQuestionModalOpen(true);
         };
@@ -484,6 +589,7 @@
           setEditingQuestion(q);
           setQuestionFormData({
             repositoryId: q.repositoryId,
+            subfolderId: q.subfolderId || '',
             questionTitle: q.questionTitle,
             language: q.language || 'c',
             codeSnippet: q.codeSnippet || '',
@@ -495,14 +601,14 @@
 
         const handleSaveQuestion = async (e) => {
           e.preventDefault();
-          if (!questionFormData.repositoryId || !questionFormData.questionTitle.trim() || !questionFormData.codeSnippet.trim()) {
-            addToast('Please select a repository and enter question title & code snippet', 'error');
+          if (!questionFormData.questionTitle.trim() || !questionFormData.codeSnippet.trim()) {
+            addToast('Please enter question title & code snippet', 'error');
             return;
           }
 
           if (window.HootDB) {
             await window.HootDB.saveQuestion({ ...editingQuestion, ...questionFormData });
-            addToast(editingQuestion ? 'Question updated' : 'Question & Answer added to repository', 'success');
+            addToast(editingQuestion ? 'Question updated' : 'Question & Solution added to subfolder', 'success');
             setIsQuestionModalOpen(false);
             onRefresh();
           }
@@ -520,128 +626,222 @@
 
         return (
           <div className="space-y-6">
-            
-            {/* Header Controls */}
+
+            {/* Breadcrumb & Control Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
               <div>
-                <h3 className="text-xl font-black text-slate-900">Repositories & Q&A Manager</h3>
-                <p className="text-xs text-slate-500 font-medium">Create coding repositories and add problem statements with code solutions.</p>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-1">
+                  <button onClick={() => { setSelectedRepo(null); setSelectedSubfolder(null); }} className="hover:text-purple-600 cursor-pointer">
+                    Repositories
+                  </button>
+                  {selectedRepo && (
+                    <>
+                      <span>&gt;</span>
+                      <button onClick={() => setSelectedSubfolder(null)} className="hover:text-purple-600 font-bold text-slate-700 cursor-pointer">
+                        {selectedRepo.title}
+                      </button>
+                    </>
+                  )}
+                  {selectedSubfolder && (
+                    <>
+                      <span>&gt;</span>
+                      <span className="font-bold text-purple-700 font-mono">📁 {selectedSubfolder.folderName}</span>
+                    </>
+                  )}
+                </div>
+
+                <h3 className="text-xl font-black text-slate-900">
+                  {!selectedRepo ? 'Workspace Repositories' : !selectedSubfolder ? `Subfolders in "${selectedRepo.title}"` : `Questions in "📁 ${selectedSubfolder.folderName}"`}
+                </h3>
               </div>
 
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    if (repositories.length === 0) {
-                      addToast('Please create a repository first!', 'error');
-                      return;
-                    }
-                    handleOpenAddQuestion(repositories[0]);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-purple-100 border border-purple-300 text-purple-900 text-xs font-extrabold hover:bg-purple-200 transition-all cursor-pointer shadow-sm"
-                >
-                  <Icon name="Plus" className="w-4 h-4 text-purple-600" />
-                  <span>+ Add Question & Answer</span>
-                </button>
-
-                <button
-                  onClick={handleOpenCreateRepo}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-xs shadow-md cursor-pointer"
-                >
-                  <Icon name="Plus" className="w-4 h-4" />
-                  <span>Create Repository</span>
-                </button>
+                {selectedSubfolder ? (
+                  <button
+                    onClick={() => handleOpenAddQuestion(selectedRepo, selectedSubfolder)}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-xs shadow-md cursor-pointer"
+                  >
+                    <Icon name="Plus" className="w-4 h-4" />
+                    <span>+ Add Question & Solution</span>
+                  </button>
+                ) : selectedRepo ? (
+                  <button
+                    onClick={() => handleOpenAddSubfolder(selectedRepo)}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-xs shadow-md cursor-pointer"
+                  >
+                    <Icon name="FolderPlus" className="w-4 h-4" />
+                    <span>+ Add Subfolder</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleOpenCreateRepo}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-xs shadow-md cursor-pointer"
+                  >
+                    <Icon name="Plus" className="w-4 h-4" />
+                    <span>Create Repository</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Repositories Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {repositories.map((repo) => {
-                const repoQuestions = questions.filter(q => q.repositoryId === repo.id);
-                return (
-                  <div key={repo.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col justify-between hover:border-purple-300 transition-all">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] font-extrabold px-3 py-1 bg-purple-100 text-purple-800 rounded-xl">
-                          {repo.category}
-                        </span>
-                        <span className="text-xs font-mono font-bold text-slate-500">
-                          {repoQuestions.length} Q&A Solutions
-                        </span>
+            {/* LEVEL 1: REPOSITORIES GRID */}
+            {!selectedRepo && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {repositories.map((repo) => {
+                  const repoSubfolders = subfolders.filter(s => s.repositoryId === repo.id);
+                  const repoQuestions = questions.filter(q => q.repositoryId === repo.id);
+
+                  return (
+                    <div key={repo.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col justify-between hover:border-purple-300 transition-all">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[11px] font-extrabold px-3 py-1 bg-purple-100 text-purple-800 rounded-xl">
+                            {repo.category}
+                          </span>
+                          <span className="text-xs font-mono font-bold text-slate-500">
+                            📁 {repoSubfolders.length} Subfolders
+                          </span>
+                        </div>
+
+                        <h4 className="text-lg font-bold text-slate-900 mb-2">{repo.title}</h4>
+                        <p className="text-xs text-slate-600 font-medium line-clamp-3 leading-relaxed mb-4">{repo.description}</p>
                       </div>
 
-                      <h4 className="text-lg font-bold text-slate-900 mb-2">{repo.title}</h4>
-                      <p className="text-xs text-slate-600 font-medium line-clamp-3 leading-relaxed mb-4">{repo.description}</p>
-                    </div>
-
-                    <div className="pt-4 border-t border-slate-100 space-y-2">
-                      <div className="flex items-center gap-2">
+                      <div className="pt-4 border-t border-slate-100 space-y-2">
                         <button
-                          onClick={() => handleOpenAddQuestion(repo)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs border border-purple-200 flex items-center justify-center gap-1 cursor-pointer"
+                          onClick={() => { setSelectedRepo(repo); setSelectedSubfolder(null); }}
+                          className="w-full py-2.5 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-extrabold text-xs border border-purple-200 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                         >
-                          <Icon name="Plus" className="w-3.5 h-3.5" />
-                          <span>Add Q&A</span>
+                          <Icon name="Folder" className="w-4 h-4" />
+                          <span>Open Subfolders ({repoSubfolders.length}) &rarr;</span>
                         </button>
 
-                        <button
-                          onClick={() => setSelectedRepoForQuestions(selectedRepoForQuestions && selectedRepoForQuestions.id === repo.id ? null : repo)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1 cursor-pointer"
-                        >
-                          <Icon name="BookOpen" className="w-3.5 h-3.5" />
-                          <span>View ({repoQuestions.length})</span>
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 pt-1">
-                        <button onClick={() => handleOpenEditRepo(repo)} className="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">
-                          <Icon name="Edit2" className="w-3.5 h-3.5 text-purple-600" />
-                        </button>
-                        <button onClick={() => setDeleteConfirmRepo(repo)} className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100">
-                          <Icon name="Trash2" className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] font-bold text-slate-400">Total Solutions: {repoQuestions.length}</span>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleOpenEditRepo(repo)} className="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">
+                              <Icon name="Edit2" className="w-3.5 h-3.5 text-purple-600" />
+                            </button>
+                            <button onClick={() => setDeleteConfirmRepo(repo)} className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100">
+                              <Icon name="Trash2" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
-            {/* Questions List Drawer for Selected Repository */}
-            {selectedRepoForQuestions && (
-              <div className="mt-8 bg-white border border-purple-200 rounded-3xl p-6 shadow-md">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase text-purple-600">Questions & Solutions List</span>
-                    <h3 className="text-xl font-black text-slate-900">{selectedRepoForQuestions.title}</h3>
-                  </div>
+            {/* LEVEL 2: SUBFOLDERS GRID INSIDE SELECTED REPO */}
+            {selectedRepo && !selectedSubfolder && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-2xl p-4">
                   <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleOpenAddQuestion(selectedRepoForQuestions)}
-                      className="px-4 py-2 bg-purple-600 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer"
-                    >
-                      + Add Question to this Repo
-                    </button>
-                    <button onClick={() => setSelectedRepoForQuestions(null)} className="text-slate-400 hover:text-slate-700">
-                      <Icon name="X" className="w-5 h-5" />
-                    </button>
+                    <Icon name="Folder" className="w-6 h-6 text-purple-600" />
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900">{selectedRepo.title}</h4>
+                      <p className="text-xs text-slate-600">{selectedRepo.description}</p>
+                    </div>
                   </div>
+
+                  <button onClick={() => setSelectedRepo(null)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border rounded-xl cursor-pointer">
+                    &larr; Back to Repositories
+                  </button>
                 </div>
 
-                {questions.filter(q => q.repositoryId === selectedRepoForQuestions.id).length > 0 ? (
+                {subfolders.filter(s => s.repositoryId === selectedRepo.id).length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {subfolders.filter(s => s.repositoryId === selectedRepo.id).map((sf) => {
+                      const sfQuestions = questions.filter(q => q.subfolderId === sf.id);
+                      return (
+                        <div key={sf.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col justify-between hover:border-purple-300 transition-all">
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <Icon name="Folder" className="w-5 h-5 text-purple-600" />
+                                <span className="text-xs font-bold uppercase text-purple-900">Subfolder</span>
+                              </div>
+                              <span className="text-xs font-mono font-bold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-lg">
+                                {sfQuestions.length} Q&A
+                              </span>
+                            </div>
+
+                            <h4 className="text-lg font-extrabold text-slate-900 mb-2">{sf.folderName}</h4>
+                            {sf.description && <p className="text-xs text-slate-600 line-clamp-2 mb-4">{sf.description}</p>}
+                          </div>
+
+                          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                            <button
+                              onClick={() => setSelectedSubfolder(sf)}
+                              className="py-2 px-4 rounded-xl bg-purple-600 text-white font-extrabold text-xs flex items-center gap-1 cursor-pointer shadow-sm"
+                            >
+                              <span>Manage Q&A ({sfQuestions.length})</span>
+                              <Icon name="ArrowRight" className="w-3.5 h-3.5" />
+                            </button>
+
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => handleOpenEditSubfolder(sf)} className="p-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100">
+                                <Icon name="Edit2" className="w-3.5 h-3.5 text-purple-600" />
+                              </button>
+                              <button onClick={() => setDeleteConfirmSubfolder(sf)} className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100">
+                                <Icon name="Trash2" className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 max-w-md mx-auto shadow-sm">
+                    <Icon name="FolderPlus" className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <h4 className="text-base font-bold text-slate-800">No Subfolders Yet</h4>
+                    <p className="text-xs text-slate-500 mt-1 mb-4">Create subfolders inside "{selectedRepo.title}" to categorize questions and answers.</p>
+                    <button
+                      onClick={() => handleOpenAddSubfolder(selectedRepo)}
+                      className="px-5 py-2.5 rounded-2xl bg-purple-600 text-white text-xs font-extrabold shadow-md"
+                    >
+                      + Create Subfolder Now
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* LEVEL 3: QUESTIONS & ANSWERS LIST INSIDE SELECTED SUBFOLDER */}
+            {selectedRepo && selectedSubfolder && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-2xl p-4">
+                  <div className="flex items-center gap-3">
+                    <Icon name="Folder" className="w-6 h-6 text-purple-600" />
+                    <div>
+                      <div className="text-[10px] font-extrabold uppercase text-purple-700">{selectedRepo.title}</div>
+                      <h4 className="text-base font-extrabold text-slate-900">📁 {selectedSubfolder.folderName}</h4>
+                    </div>
+                  </div>
+
+                  <button onClick={() => setSelectedSubfolder(null)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border rounded-xl cursor-pointer">
+                    &larr; Back to Subfolders
+                  </button>
+                </div>
+
+                {questions.filter(q => q.subfolderId === selectedSubfolder.id).length > 0 ? (
                   <div className="space-y-4">
-                    {questions.filter(q => q.repositoryId === selectedRepoForQuestions.id).map((q) => (
-                      <div key={q.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    {questions.filter(q => q.subfolderId === selectedSubfolder.id).map((q) => (
+                      <div key={q.id} className="p-5 rounded-2xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:border-purple-300">
                         <div>
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1.5">
                             <span className="text-xs font-black text-purple-700 font-mono">#{q.displayOrder || 1}</span>
-                            <h4 className="text-sm font-bold text-slate-900">{q.questionTitle}</h4>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-200 text-slate-700">{q.language}</span>
+                            <h4 className="text-sm font-extrabold text-slate-900">{q.questionTitle}</h4>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-purple-100 text-purple-800">{q.language}</span>
                           </div>
                           {q.explanation && <p className="text-xs text-slate-600 line-clamp-1">{q.explanation}</p>}
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <button onClick={() => handleOpenEditQuestion(q)} className="p-2 rounded-xl bg-white border border-slate-200 text-purple-600 hover:bg-purple-50">
+                          <button onClick={() => handleOpenEditQuestion(q)} className="p-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100">
                             <Icon name="Edit2" className="w-4 h-4" />
                           </button>
                           <button onClick={() => setDeleteConfirmQuestion(q)} className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100">
@@ -652,8 +852,16 @@
                     ))}
                   </div>
                 ) : (
-                  <div className="py-8 text-center text-slate-500 font-medium text-xs">
-                    No questions added to this repository yet. Click "+ Add Question to this Repo" above to add your first question & answer!
+                  <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 max-w-md mx-auto shadow-sm">
+                    <Icon name="HelpCircle" className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <h4 className="text-base font-bold text-slate-800">No Questions in this Subfolder</h4>
+                    <p className="text-xs text-slate-500 mt-1 mb-4">Click "+ Add Question & Solution" above to add code solutions to "{selectedSubfolder.folderName}".</p>
+                    <button
+                      onClick={() => handleOpenAddQuestion(selectedRepo, selectedSubfolder)}
+                      className="px-5 py-2.5 rounded-2xl bg-purple-600 text-white text-xs font-extrabold shadow-md"
+                    >
+                      + Add Question Now
+                    </button>
                   </div>
                 )}
               </div>
@@ -711,6 +919,44 @@
               </div>
             )}
 
+            {/* Create / Edit Subfolder Modal */}
+            {isSubfolderModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                <div className="w-full max-w-md bg-white rounded-3xl p-6 border shadow-2xl">
+                  <h3 className="text-lg font-black mb-4">{editingSubfolder ? 'Edit Subfolder' : 'Create New Subfolder'}</h3>
+                  <form onSubmit={handleSaveSubfolder} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase mb-1">Subfolder Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={subfolderFormData.folderName}
+                        onChange={(e) => setSubfolderFormData({ ...subfolderFormData, folderName: e.target.value })}
+                        placeholder="e.g. Chapter 1: Basic Arrays & Loops"
+                        className="w-full px-4 py-2.5 bg-slate-50 border rounded-2xl text-xs font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase mb-1">Subfolder Description</label>
+                      <textarea
+                        rows={3}
+                        value={subfolderFormData.description}
+                        onChange={(e) => setSubfolderFormData({ ...subfolderFormData, description: e.target.value })}
+                        placeholder="Optional details about questions in this folder..."
+                        className="w-full px-4 py-2.5 bg-slate-50 border rounded-2xl text-xs font-medium"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                      <button type="button" onClick={() => setIsSubfolderModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
+                      <button type="submit" className="px-5 py-2.5 bg-purple-600 text-white rounded-2xl text-xs font-extrabold shadow-md">Save Subfolder</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
             {/* Create / Edit Question & Answer Modal */}
             {isQuestionModalOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
@@ -726,22 +972,7 @@
 
                   <form onSubmit={handleSaveQuestion} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Select Target Repository *</label>
-                      <select
-                        required
-                        value={questionFormData.repositoryId}
-                        onChange={(e) => setQuestionFormData({ ...questionFormData, repositoryId: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none"
-                      >
-                        <option value="" disabled>-- Select a Repository --</option>
-                        {repositories.map(r => (
-                          <option key={r.id} value={r.id}>{r.title} ({r.category})</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Question / Problem Title *</label>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Question Title *</label>
                       <input
                         type="text"
                         required
@@ -813,12 +1044,12 @@
               </div>
             )}
 
-            {/* Delete Confirmation Modal for Repo */}
+            {/* Delete Confirmation Modals */}
             {deleteConfirmRepo && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
                 <div className="w-full max-w-md bg-white border border-rose-200 rounded-3xl p-6">
                   <h3 className="text-lg font-black text-slate-900 mb-2">Delete Repository?</h3>
-                  <p className="text-xs text-slate-600 mb-4 font-medium">Are you sure you want to delete "{deleteConfirmRepo.title}" and all its questions?</p>
+                  <p className="text-xs text-slate-600 mb-4 font-medium">Are you sure you want to delete "{deleteConfirmRepo.title}" and all its subfolders & questions?</p>
                   <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                     <button onClick={() => setDeleteConfirmRepo(null)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
                     <button onClick={handleDeleteRepo} className="px-5 py-2.5 rounded-2xl bg-rose-600 text-white text-xs font-extrabold">Confirm Delete</button>
@@ -827,7 +1058,19 @@
               </div>
             )}
 
-            {/* Delete Confirmation Modal for Question */}
+            {deleteConfirmSubfolder && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                <div className="w-full max-w-md bg-white border border-rose-200 rounded-3xl p-6">
+                  <h3 className="text-lg font-black text-slate-900 mb-2">Delete Subfolder?</h3>
+                  <p className="text-xs text-slate-600 mb-4 font-medium">Are you sure you want to delete folder "{deleteConfirmSubfolder.folderName}" and its questions?</p>
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+                    <button onClick={() => setDeleteConfirmSubfolder(null)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
+                    <button onClick={handleDeleteSubfolder} className="px-5 py-2.5 rounded-2xl bg-rose-600 text-white text-xs font-extrabold">Confirm Delete</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {deleteConfirmQuestion && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
                 <div className="w-full max-w-md bg-white border border-rose-200 rounded-3xl p-6">
@@ -845,18 +1088,20 @@
         );
       }
 
-      // INTEGRATED CONTESTS MANAGER COMPONENT INSIDE ADMIN.HTML
+      // INTEGRATED LIVE TESTS & EXAM ANSWER KEYS MANAGER IN ADMIN.HTML
       function ContestsManager({ contests, applications, onRefresh, addToast }) {
         const [isModalOpen, setIsModalOpen] = useState(false);
         const [editingContest, setEditingContest] = useState(null);
         const [deleteConfirm, setDeleteConfirm] = useState(null);
-        const [subTab, setSubTab] = useState('contests'); // 'contests' | 'applications'
 
         const [formData, setFormData] = useState({
           title: '',
+          duration: '60 Mins',
           description: '',
-          limits: 'Max 100 Applicants • Deadline 30 Sept',
           image: SAMPLE_CONTEST_IMAGES[0],
+          questions: [
+            { id: 'q-1', questionText: '', answerText: '' }
+          ],
           status: 'Active'
         });
 
@@ -864,9 +1109,12 @@
           setEditingContest(null);
           setFormData({
             title: '',
+            duration: '60 Mins',
             description: '',
-            limits: 'Max 100 Applicants • Deadline 30 Sept',
             image: SAMPLE_CONTEST_IMAGES[0],
+            questions: [
+              { id: `q-${Date.now()}-1`, questionText: '', answerText: '' }
+            ],
             status: 'Active'
           });
           setIsModalOpen(true);
@@ -874,26 +1122,84 @@
 
         const handleOpenEdit = (c) => {
           setEditingContest(c);
+          const existingQuestions = Array.isArray(c.questions) && c.questions.length > 0
+            ? c.questions
+            : [{ id: `q-${Date.now()}-1`, questionText: '', answerText: '' }];
+
           setFormData({
-            title: c.title,
-            description: c.description,
-            limits: c.limits || '',
+            title: c.title || '',
+            duration: c.duration || c.limits || '60 Mins',
+            description: c.description || '',
             image: c.image || SAMPLE_CONTEST_IMAGES[0],
+            questions: existingQuestions,
             status: c.status || 'Active'
           });
           setIsModalOpen(true);
         };
 
+        const handleAddQuestionItem = () => {
+          setFormData((prev) => ({
+            ...prev,
+            questions: [
+              ...prev.questions,
+              { id: `q-${Date.now()}-${prev.questions.length + 1}`, questionText: '', answerText: '' }
+            ]
+          }));
+        };
+
+        const handleUpdateQuestionItem = (index, field, value) => {
+          setFormData((prev) => {
+            const updated = [...prev.questions];
+            updated[index] = { ...updated[index], [field]: value };
+            return { ...prev, questions: updated };
+          });
+        };
+
+        const handleRemoveQuestionItem = (index) => {
+          if (formData.questions.length <= 1) {
+            addToast('A test must contain at least one question!', 'warning');
+            return;
+          }
+          setFormData((prev) => ({
+            ...prev,
+            questions: prev.questions.filter((_, i) => i !== index)
+          }));
+        };
+
         const handleSaveContest = async (e) => {
           e.preventDefault();
-          if (!formData.title.trim() || !formData.description.trim() || !formData.limits.trim()) {
-            addToast('Please fill out all required contest details', 'error');
+          if (!formData.title.trim()) {
+            addToast('Please enter the Exam / Test Name', 'error');
+            return;
+          }
+          if (!formData.description.trim()) {
+            addToast('Please enter exam details or instructions', 'error');
+            return;
+          }
+          if (!formData.duration.trim()) {
+            addToast('Please specify the time duration', 'error');
+            return;
+          }
+          if (!formData.questions || formData.questions.length === 0) {
+            addToast('Please add at least one question & answer key', 'error');
             return;
           }
 
+          for (let i = 0; i < formData.questions.length; i++) {
+            const q = formData.questions[i];
+            if (!q.questionText.trim() || !q.answerText.trim()) {
+              addToast(`Please complete both Question and Answer fields for Question #${i + 1}`, 'error');
+              return;
+            }
+          }
+
           if (window.HootDB) {
-            await window.HootDB.saveContest({ ...editingContest, ...formData });
-            addToast(editingContest ? 'Contest updated' : 'New Contest created', 'success');
+            await window.HootDB.saveContest({
+              ...editingContest,
+              ...formData,
+              limits: formData.duration
+            });
+            addToast(editingContest ? 'Live Test updated successfully' : 'Published Live Test & Answer Keys!', 'success');
             setIsModalOpen(false);
             onRefresh();
           }
@@ -903,16 +1209,8 @@
           if (!deleteConfirm) return;
           if (window.HootDB) {
             await window.HootDB.deleteContest(deleteConfirm.id);
-            addToast('Contest deleted successfully', 'warning');
+            addToast('Live Test deleted successfully', 'warning');
             setDeleteConfirm(null);
-            onRefresh();
-          }
-        };
-
-        const handleUpdateAppStatus = async (appId, newStatus) => {
-          if (window.HootDB) {
-            await window.HootDB.updateApplicationStatus(appId, newStatus);
-            addToast(`Application status updated to "${newStatus}"`, newStatus === 'Accepted' ? 'success' : 'info');
             onRefresh();
           }
         };
@@ -920,69 +1218,62 @@
         return (
           <div className="space-y-6">
             
-            {/* Top Sub-navigation Bar */}
+            {/* Header Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setSubTab('contests')}
-                  className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                    subTab === 'contests' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  Active Contests ({contests.length})
-                </button>
-                <button
-                  onClick={() => setSubTab('applications')}
-                  className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
-                    subTab === 'applications' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  User Applications ({applications.length})
-                </button>
+              <div>
+                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                  <Icon name="Trophy" className="w-5 h-5 text-amber-500" />
+                  <span>Live Tests & Exam Answer Keys</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">Create live exams with title, time duration, details, and official answer keys for users to view and copy.</p>
               </div>
 
               <button
                 onClick={handleOpenCreate}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-xs shadow-md cursor-pointer"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-xs shadow-md cursor-pointer hover:shadow-purple-500/20 transition-all"
               >
                 <Icon name="Plus" className="w-4 h-4" />
-                <span>Add New Contest</span>
+                <span>+ Create Live Test</span>
               </button>
             </div>
 
-            {/* SUB TAB 1: CONTESTS CARDS */}
-            {subTab === 'contests' && (
+            {/* LIVE TESTS GRID CARDS */}
+            {contests.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {contests.map((c) => {
-                  const applicantCount = applications.filter(a => a.contestId === c.id).length;
+                  const questionCount = Array.isArray(c.questions) ? c.questions.length : 0;
                   return (
-                    <div key={c.id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between">
+                    <div key={c.id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between hover:border-purple-300 transition-all">
                       <div>
                         <div className="h-44 w-full relative overflow-hidden bg-slate-100">
                           <img src={c.image} alt={c.title} className="w-full h-full object-cover" />
                           <div className="absolute top-3 right-3 px-3 py-1 rounded-xl text-[10px] font-extrabold uppercase bg-purple-600 text-white shadow-md">
                             {c.status || 'Active'}
                           </div>
+                          <div className="absolute bottom-3 left-3 px-3 py-1 rounded-xl text-[10px] font-extrabold bg-slate-900/80 text-amber-300 backdrop-blur-sm border border-slate-700">
+                            ⏱️ {c.duration || c.limits || '60 Mins'}
+                          </div>
                         </div>
 
                         <div className="p-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-black text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
+                              📝 {questionCount} Answer {questionCount === 1 ? 'Key' : 'Keys'}
+                            </span>
+                          </div>
+
                           <h3 className="text-lg font-bold text-slate-900 mb-2">{c.title}</h3>
                           <p className="text-xs text-slate-600 font-medium line-clamp-2 leading-relaxed mb-4">{c.description}</p>
-                          
-                          <div className="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-xs font-bold text-purple-900 flex items-center justify-between">
-                            <span>Limits & Rules:</span>
-                            <span className="text-[11px] font-mono text-purple-700">{c.limits}</span>
-                          </div>
                         </div>
                       </div>
 
                       <div className="p-6 pt-0 border-t border-slate-100 flex items-center justify-between mt-2">
-                        <span className="text-xs font-extrabold text-slate-600">{applicantCount} Applicants</span>
+                        <span className="text-xs font-mono font-bold text-slate-400">Duration: {c.duration || c.limits || '60 Mins'}</span>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => handleOpenEdit(c)} className="p-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">
+                          <button onClick={() => handleOpenEdit(c)} className="p-2 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200">
                             <Icon name="Edit2" className="w-4 h-4 text-purple-600" />
                           </button>
-                          <button onClick={() => setDeleteConfirm(c)} className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100">
+                          <button onClick={() => setDeleteConfirm(c)} className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200">
                             <Icon name="Trash2" className="w-4 h-4" />
                           </button>
                         </div>
@@ -991,139 +1282,78 @@
                   );
                 })}
               </div>
-            )}
-
-            {/* SUB TAB 2: APPLICANTS TABLE WITH ACCEPT & REJECT ACTIONS */}
-            {subTab === 'applications' && (
-              <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm p-6">
-                {applications.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-slate-500 font-extrabold uppercase">
-                          <th className="pb-3 px-2">Full Name</th>
-                          <th className="pb-3 px-2">Adhar No</th>
-                          <th className="pb-3 px-2">Education Degree</th>
-                          <th className="pb-3 px-2">Gender</th>
-                          <th className="pb-3 px-2">Contact Email</th>
-                          <th className="pb-3 px-2">Contest Applied</th>
-                          <th className="pb-3 px-2">Status</th>
-                          <th className="pb-3 px-2 text-right">Admin Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-semibold text-slate-800">
-                        {applications.map((app) => {
-                          const status = app.status || 'Pending';
-                          return (
-                            <tr key={app.id} className="hover:bg-slate-50">
-                              <td className="py-3 px-2 font-bold text-slate-900">{app.fullName}</td>
-                              <td className="py-3 px-2 font-mono">{app.aadharNo}</td>
-                              <td className="py-3 px-2"><span className="px-2.5 py-0.5 rounded-lg bg-purple-100 text-purple-800 font-bold">{app.educationDegree}</span></td>
-                              <td className="py-3 px-2">{app.gender}</td>
-                              <td className="py-3 px-2 text-sky-600 font-mono">{app.contactEmail}</td>
-                              <td className="py-3 px-2 font-bold text-purple-700">{app.contestTitle}</td>
-                              <td className="py-3 px-2">
-                                {status === 'Accepted' && (
-                                  <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 font-extrabold text-[10px] border border-emerald-200">
-                                    Accepted ✅
-                                  </span>
-                                )}
-                                {status === 'Rejected' && (
-                                  <span className="px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 font-extrabold text-[10px] border border-rose-200">
-                                    Declined ❌
-                                  </span>
-                                )}
-                                {status === 'Pending' && (
-                                  <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-800 font-extrabold text-[10px] border border-amber-200">
-                                    Pending ⏳
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-3 px-2 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {status !== 'Accepted' && (
-                                    <button
-                                      onClick={() => handleUpdateAppStatus(app.id, 'Accepted')}
-                                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] shadow-sm cursor-pointer"
-                                    >
-                                      Accept ✅
-                                    </button>
-                                  )}
-                                  {status !== 'Rejected' && (
-                                    <button
-                                      onClick={() => handleUpdateAppStatus(app.id, 'Rejected')}
-                                      className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-extrabold text-[10px] shadow-sm cursor-pointer"
-                                    >
-                                      Reject ❌
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="py-12 text-center text-slate-500 font-medium">No contest applications submitted yet.</div>
-                )}
+            ) : (
+              <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto">
+                <Icon name="Trophy" className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h4 className="text-base font-bold text-slate-800">No Live Tests Created Yet</h4>
+                <p className="text-xs text-slate-500 mt-1 mb-4">Click "+ Create Live Test" above to publish your first exam with questions and answer keys.</p>
+                <button
+                  onClick={handleOpenCreate}
+                  className="px-5 py-2.5 rounded-2xl bg-purple-600 text-white font-extrabold text-xs shadow-md"
+                >
+                  + Create Live Test Now
+                </button>
               </div>
             )}
 
-            {/* Create / Edit Contest Modal */}
+            {/* Create / Edit Live Test Modal */}
             {isModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-                <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl p-6">
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                <div className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-3xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
                     <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                       <Icon name="Trophy" className="w-5 h-5 text-amber-500" />
-                      <span>{editingContest ? 'Edit Contest' : 'Create New Contest'}</span>
+                      <span>{editingContest ? 'Edit Live Test & Answer Key' : 'Create New Live Test'}</span>
                     </h3>
                     <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700">
                       <Icon name="X" className="w-5 h-5" />
                     </button>
                   </div>
 
-                  <form onSubmit={handleSaveContest} className="space-y-4">
+                  <form onSubmit={handleSaveContest} className="space-y-5">
+                    
+                    {/* Exam Name */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Contest Title *</label>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Name of the Exam *</label>
                       <input
                         type="text"
                         required
                         value={formData.title}
                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        placeholder="e.g. National Code Mining Sprint 2026"
+                        placeholder="e.g. Python Developer Certification Final Exam 2026"
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none"
                       />
                     </div>
 
+                    {/* Time Duration */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Contest Details / Rules *</label>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Time Duration (Time to Complete) *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.duration}
+                        onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                        placeholder="e.g. 60 Mins, 90 Mins, 2 Hours"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Details / Instructions */}
+                    <div>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Details & Overview *</label>
                       <textarea
                         required
                         rows={3}
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        placeholder="Detailed rules, format, and rewards..."
+                        placeholder="Exam overview, total marks, instructions, passing criteria..."
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 focus:outline-none"
                       />
                     </div>
 
+                    {/* Image Selector */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Contest Limits *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.limits}
-                        onChange={(e) => setFormData({ ...formData, limits: e.target.value })}
-                        placeholder="e.g. Max 100 Applicants • Deadline 30 Sept"
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Contest Image URL *</label>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Exam Banner Image URL *</label>
                       <input
                         type="text"
                         required
@@ -1132,22 +1362,88 @@
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-mono text-slate-900 focus:outline-none mb-2"
                       />
                       
-                      <div className="text-[11px] font-bold text-slate-500 mb-1">Or Pick Banner Template:</div>
+                      <div className="text-[11px] font-bold text-slate-500 mb-1">Or Select Sample Banner:</div>
                       <div className="flex gap-2">
                         {SAMPLE_CONTEST_IMAGES.map((img, i) => (
                           <img
                             key={i}
                             src={img}
                             onClick={() => setFormData({ ...formData, image: img })}
-                            className={`w-16 h-10 object-cover rounded-xl cursor-pointer border-2 ${formData.image === img ? 'border-purple-600' : 'border-transparent'}`}
+                            className={`w-16 h-10 object-cover rounded-xl cursor-pointer border-2 ${formData.image === img ? 'border-purple-600 scale-105' : 'border-transparent'}`}
                           />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* DYNAMIC QUESTIONS & ANSWER KEYS SECTION */}
+                    <div className="pt-4 border-t border-slate-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">Exam Questions & Answer Keys ({formData.questions.length})</h4>
+                          <p className="text-[11px] text-slate-500">Enter questions and their solution answer key code below.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAddQuestionItem}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100 text-purple-800 text-xs font-extrabold border border-purple-300 hover:bg-purple-200 cursor-pointer shadow-sm"
+                        >
+                          <Icon name="Plus" className="w-3.5 h-3.5" />
+                          <span>+ Add Question</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+                        {formData.questions.map((q, idx) => (
+                          <div key={q.id || idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 relative group">
+                            <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-200">
+                              <span className="text-xs font-black text-purple-700 font-mono">Question #{idx + 1}</span>
+                              {formData.questions.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveQuestionItem(idx)}
+                                  className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Icon name="Trash2" className="w-3.5 h-3.5" />
+                                  <span>Remove</span>
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="space-y-3">
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Question Statement / Prompt *</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={q.questionText}
+                                  onChange={(e) => handleUpdateQuestionItem(idx, 'questionText', e.target.value)}
+                                  placeholder={`e.g. Q${idx + 1}: Write a function to check prime numbers in Python`}
+                                  className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Answer / Solution Answer Key *</label>
+                                <textarea
+                                  required
+                                  rows={4}
+                                  value={q.answerText}
+                                  onChange={(e) => handleUpdateQuestionItem(idx, 'answerText', e.target.value)}
+                                  placeholder={`Enter the full answer code / text solution for Q${idx + 1}...`}
+                                  className="w-full px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-cyan-200 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
 
                     <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
                       <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
-                      <button type="submit" className="px-5 py-2.5 rounded-2xl bg-purple-600 text-white text-xs font-extrabold shadow-md">Save Contest</button>
+                      <button type="submit" className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-extrabold shadow-md cursor-pointer">
+                        {editingContest ? 'Update Test' : 'Publish Test'}
+                      </button>
                     </div>
                   </form>
                 </div>
@@ -1157,12 +1453,12 @@
             {/* Delete Confirmation Modal */}
             {deleteConfirm && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-                <div className="relative w-full max-w-md bg-white border border-rose-200 rounded-3xl p-6">
-                  <h3 className="text-lg font-black text-slate-900 mb-2">Delete Contest?</h3>
-                  <p className="text-xs text-slate-600 mb-4 font-medium">Are you sure you want to delete "{deleteConfirm.title}"?</p>
+                <div className="relative w-full max-w-md bg-white border border-rose-200 rounded-3xl p-6 shadow-xl">
+                  <h3 className="text-lg font-black text-slate-900 mb-2">Delete Live Test?</h3>
+                  <p className="text-xs text-slate-600 mb-4 font-medium">Are you sure you want to delete "{deleteConfirm.title}" and its answer keys?</p>
                   <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                     <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
-                    <button onClick={handleDeleteContest} className="px-5 py-2.5 rounded-2xl bg-rose-600 text-white text-xs font-extrabold">Confirm Delete</button>
+                    <button onClick={handleDeleteContest} className="px-5 py-2.5 rounded-2xl bg-rose-600 text-white text-xs font-extrabold shadow-sm">Confirm Delete</button>
                   </div>
                 </div>
               </div>
@@ -1173,19 +1469,19 @@
       }
 
       // Root Admin Dashboard Component
-      function AdminDashboard({ adminUser, onLogout, repositories, questions, contests, applications, onRefresh, addToast }) {
-        const [activeTab, setActiveTab] = useState('repos'); // 'repos' | 'questions' | 'contests'
+      function AdminDashboard({ adminUser, onLogout, repositories, subfolders, questions, contests, applications, onRefresh, addToast }) {
+        const [activeTab, setActiveTab] = useState('repos'); // 'repos' | 'contests'
         const [confirmClearAll, setConfirmClearAll] = useState(false);
 
         const totalRepos = repositories.length;
+        const totalSubfolders = (subfolders || []).length;
         const totalQuestions = questions.length;
         const totalContests = contests.length;
-        const totalApplications = applications.length;
 
         const handleClearAllData = async () => {
           try {
             await window.HootDB.clearAllRepositories();
-            addToast('All repositories and questions cleared', 'warning');
+            addToast('All repositories, subfolders, and questions cleared', 'warning');
             setConfirmClearAll(false);
             onRefresh();
           } catch (err) {
@@ -1235,10 +1531,10 @@
             </div>
 
             {/* KPI STATS GRID */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
               <div className="glass-panel p-5 rounded-3xl border border-slate-200 bg-white flex items-center justify-between shadow-sm">
                 <div>
-                  <div className="text-xs text-slate-500 font-bold mb-1">Total Repositories</div>
+                  <div className="text-xs text-slate-500 font-bold mb-1">Repositories</div>
                   <div className="text-3xl font-black text-slate-900">{totalRepos}</div>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-600 shadow-sm">
@@ -1248,7 +1544,17 @@
 
               <div className="glass-panel p-5 rounded-3xl border border-slate-200 bg-white flex items-center justify-between shadow-sm">
                 <div>
-                  <div className="text-xs text-slate-500 font-bold mb-1">Total Questions</div>
+                  <div className="text-xs text-slate-500 font-bold mb-1">Subfolders</div>
+                  <div className="text-3xl font-black text-indigo-600">{totalSubfolders}</div>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 shadow-sm">
+                  <Icon name="Folder" className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="glass-panel p-5 rounded-3xl border border-slate-200 bg-white flex items-center justify-between shadow-sm">
+                <div>
+                  <div className="text-xs text-slate-500 font-bold mb-1">Q&A Solutions</div>
                   <div className="text-3xl font-black text-sky-600">{totalQuestions}</div>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 text-sky-600 shadow-sm">
@@ -1258,21 +1564,11 @@
 
               <div className="glass-panel p-5 rounded-3xl border border-slate-200 bg-white flex items-center justify-between shadow-sm">
                 <div>
-                  <div className="text-xs text-slate-500 font-bold mb-1">Active Contests</div>
+                  <div className="text-xs text-slate-500 font-bold mb-1">Live Tests</div>
                   <div className="text-3xl font-black text-amber-600">{totalContests}</div>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 shadow-sm">
                   <Icon name="Trophy" className="w-6 h-6" />
-                </div>
-              </div>
-
-              <div className="glass-panel p-5 rounded-3xl border border-slate-200 bg-white flex items-center justify-between shadow-sm">
-                <div>
-                  <div className="text-xs text-slate-500 font-bold mb-1">Contest Applicants</div>
-                  <div className="text-3xl font-black text-emerald-600">{totalApplications}</div>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 shadow-sm">
-                  <Icon name="CheckCircle2" className="w-6 h-6" />
                 </div>
               </div>
             </div>
@@ -1286,7 +1582,7 @@
                 }`}
               >
                 <Icon name="FolderGit2" className="w-4 h-4" />
-                <span>Repositories ({totalRepos})</span>
+                <span>Workspace Hierarchy ({totalRepos} Repos)</span>
               </button>
 
               <button
@@ -1296,7 +1592,7 @@
                 }`}
               >
                 <Icon name="Trophy" className="w-4 h-4" />
-                <span>Contests & Applications ({totalContests})</span>
+                <span>Live Tests & Answer Keys ({totalContests})</span>
               </button>
             </div>
 
@@ -1304,6 +1600,7 @@
             {activeTab === 'repos' && (
               <RepoManager
                 repositories={repositories}
+                subfolders={subfolders}
                 questions={questions}
                 onRefresh={onRefresh}
                 addToast={addToast}
@@ -1327,7 +1624,7 @@
                     <h3 className="text-lg font-black text-slate-900">Purge All Repositories?</h3>
                   </div>
                   <p className="text-xs text-slate-600 font-medium leading-relaxed mb-4">
-                    This will clear all repositories and questions from the database so you can start with a 100% clean list.
+                    This will clear all repositories, subfolders, and questions from the database so you can start with a 100% clean list.
                   </p>
                   <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                     <button onClick={() => setConfirmClearAll(false)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
@@ -1344,6 +1641,7 @@
       function AdminApp() {
         const [adminUser, setAdminUser] = useState(null);
         const [repositories, setRepositories] = useState([]);
+        const [subfolders, setSubfolders] = useState([]);
         const [questions, setQuestions] = useState([]);
         const [contests, setContests] = useState([]);
         const [applications, setApplications] = useState([]);
@@ -1361,10 +1659,12 @@
           try {
             await window.HootDB.seedInitialDataIfNeeded();
             const repos = await window.HootDB.fetchRepositories();
+            const sfList = await window.HootDB.fetchSubfolders ? await window.HootDB.fetchSubfolders() : [];
             const qList = await window.HootDB.fetchQuestions();
             const cList = await window.HootDB.fetchContests();
             const aList = await window.HootDB.fetchContestApplications();
             setRepositories(repos);
+            setSubfolders(sfList);
             setQuestions(qList);
             setContests(cList);
             setApplications(aList);
@@ -1374,13 +1674,20 @@
         useEffect(() => {
           if (window.HootDB) {
             loadData();
-            const unsub = window.HootDB.subscribeToApplications ? window.HootDB.subscribeToApplications((apps) => setApplications(apps)) : null;
-            return () => { if (typeof unsub === 'function') unsub(); };
+            const unsubApps = window.HootDB.subscribeToApplications ? window.HootDB.subscribeToApplications((apps) => setApplications(apps)) : null;
+            const unsubSubfolders = window.HootDB.subscribeToSubfolders ? window.HootDB.subscribeToSubfolders((sf) => setSubfolders(sf)) : null;
+            return () => {
+              if (typeof unsubApps === 'function') unsubApps();
+              if (typeof unsubSubfolders === 'function') unsubSubfolders();
+            };
           } else {
             const handleReady = () => {
               loadData();
               if (window.HootDB && window.HootDB.subscribeToApplications) {
                 window.HootDB.subscribeToApplications((apps) => setApplications(apps));
+              }
+              if (window.HootDB && window.HootDB.subscribeToSubfolders) {
+                window.HootDB.subscribeToSubfolders((sf) => setSubfolders(sf));
               }
             };
             window.addEventListener('HootDBReady', handleReady);
@@ -1429,6 +1736,7 @@
                   adminUser={adminUser}
                   onLogout={() => { setAdminUser(null); addToast('Signed out of Admin Portal', 'info'); }}
                   repositories={repositories}
+                  subfolders={subfolders}
                   questions={questions}
                   contests={contests}
                   applications={applications}
