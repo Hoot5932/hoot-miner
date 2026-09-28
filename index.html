@@ -3,12 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Create New Account — Hoot Miner</title>
+    <title>Hoot Miner — Code & Solution Mining Hub</title>
+    <meta name="description" content="Intuitive code snippet, contest hub, and developer Q&A repository platform with syntax highlighting, search, and online compiler execution." />
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -20,24 +21,60 @@
     <!-- Babel Standalone CDN -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Prism Syntax Highlighting CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+
     <style>
+      :root {
+        --bg-main: #f8fafc;
+        --bg-card: #ffffff;
+        --accent-purple: #7c3aed;
+        --accent-pink: #db2777;
+        --accent-cyan: #0284c7;
+        --accent-emerald: #059669;
+      }
+
       body {
         background-color: #f8fafc;
         background-image: 
-          radial-gradient(at 10% 10%, rgba(124, 58, 237, 0.1) 0px, transparent 50%),
-          radial-gradient(at 90% 20%, rgba(2, 132, 199, 0.1) 0px, transparent 50%),
-          radial-gradient(at 50% 80%, rgba(219, 39, 119, 0.08) 0px, transparent 50%);
+          radial-gradient(at 10% 10%, rgba(124, 58, 237, 0.08) 0px, transparent 50%),
+          radial-gradient(at 90% 20%, rgba(2, 132, 199, 0.08) 0px, transparent 50%),
+          radial-gradient(at 50% 80%, rgba(219, 39, 119, 0.06) 0px, transparent 50%),
+          radial-gradient(at 80% 90%, rgba(5, 150, 105, 0.06) 0px, transparent 50%);
         background-attachment: fixed;
         color: #0f172a;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        overflow-x: hidden;
         min-height: 100vh;
       }
 
       .glass-panel {
-        background: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.85);
         backdrop-filter: blur(20px);
-        border: 1px solid rgba(226, 232, 240, 0.9);
-        box-shadow: 0 20px 40px -15px rgba(124, 58, 237, 0.15);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 10px 30px -5px rgba(124, 58, 237, 0.08);
+      }
+
+      .glass-card {
+        background: #ffffff;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 20px 0 rgba(148, 163, 184, 0.12);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .glass-card:hover {
+        background: #ffffff;
+        border-color: rgba(124, 58, 237, 0.4);
+        box-shadow: 0 20px 40px -15px rgba(124, 58, 237, 0.18), 0 0 20px 0 rgba(2, 132, 199, 0.1);
+        transform: translateY(-3px);
       }
 
       .gradient-text-purple {
@@ -45,14 +82,77 @@
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
       }
+
+      .gradient-text-cyan {
+        background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .gradient-glow-bg {
+        position: absolute;
+        top: -100px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        max-width: 1300px;
+        height: 700px;
+        background: radial-gradient(circle at 50% 30%, rgba(124, 58, 237, 0.12) 0%, rgba(219, 39, 119, 0.08) 35%, rgba(2, 132, 199, 0.05) 60%, rgba(248, 250, 252, 0) 80%);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* 3D Card Rotation Styles */
+      .perspective-1000 {
+        perspective: 1000px;
+      }
+      .preserve-3d {
+        transform-style: preserve-3d;
+        transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .backface-hidden {
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+      }
+      .rotate-y-180 {
+        transform: rotateY(180deg);
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+
+      pre[class*="language-"],
+      code[class*="language-"] {
+        color: #f8fafc;
+        background: #0f172a !important;
+        font-family: 'Fira Code', Consolas, Monaco, monospace;
+        font-size: 0.92rem;
+        line-height: 1.65;
+        direction: ltr;
+        text-align: left;
+        white-space: pre;
+        tab-size: 4;
+      }
     </style>
   </head>
   <body>
-    <div id="signup-root"></div>
+    <div id="root"></div>
 
-    <!-- Firebase SDK Modules via CDN -->
+    <!-- Firebase SDK Imports via CDN -->
     <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
       import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
       const firebaseConfig = {
@@ -69,229 +169,619 @@
       const app = initializeApp(firebaseConfig);
       const rtdb = getDatabase(app);
 
-      window.HootAuth = {
-        async registerUser(userData) {
-          localStorage.setItem("hootminer_current_user", JSON.stringify(userData));
-          
+      const DEFAULT_DEMO_REPO_IDS = ['repo-c-1', 'repo-c-2', 'repo-py-1', 'repo-java-1', 'repo-java-2'];
+      const DEFAULT_DEMO_QUESTION_IDS = ['q-c-1', 'q-cpp-1', 'q-cpp-2', 'q-py-1', 'q-java-1', 'q-java-2'];
+      const LOCAL_STORAGE_REPOS_KEY = "hootminer_repos";
+      const LOCAL_STORAGE_QUESTIONS_KEY = "hootminer_questions";
+      const LOCAL_STORAGE_CONTESTS_KEY = "hootminer_contests";
+      const LOCAL_STORAGE_SUBFOLDERS_KEY = "hootminer_subfolders";
+
+      window.HootDB = {
+        async seedInitialDataIfNeeded() {
+          try {
+            for (const id of DEFAULT_DEMO_REPO_IDS) await remove(ref(rtdb, `repositories/${id}`));
+            for (const qId of DEFAULT_DEMO_QUESTION_IDS) await remove(ref(rtdb, `questions_answers/${qId}`));
+          } catch (err) {
+            console.warn(err);
+          }
+        },
+
+        async fetchRepositories() {
+          try {
+            const snapshot = await get(ref(rtdb, "repositories"));
+            if (snapshot.exists()) {
+              return Object.values(snapshot.val()).filter(r => r && !DEFAULT_DEMO_REPO_IDS.includes(r.id));
+            }
+            return [];
+          } catch (err) {
+            const local = localStorage.getItem(LOCAL_STORAGE_REPOS_KEY);
+            return local ? JSON.parse(local).filter(r => r && !DEFAULT_DEMO_REPO_IDS.includes(r.id)) : [];
+          }
+        },
+
+        async fetchQuestions() {
+          try {
+            const snapshot = await get(ref(rtdb, "questions_answers"));
+            if (snapshot.exists()) {
+              return Object.values(snapshot.val()).filter(q => q && !DEFAULT_DEMO_QUESTION_IDS.includes(q.id));
+            }
+            return [];
+          } catch (err) {
+            const local = localStorage.getItem(LOCAL_STORAGE_QUESTIONS_KEY);
+            return local ? JSON.parse(local).filter(q => q && !DEFAULT_DEMO_QUESTION_IDS.includes(q.id)) : [];
+          }
+        },
+
+        async fetchSubfolders() {
+          try {
+            const snapshot = await get(ref(rtdb, "subfolders"));
+            if (snapshot.exists()) {
+              return Object.values(snapshot.val());
+            }
+            return [];
+          } catch (err) {
+            const local = localStorage.getItem(LOCAL_STORAGE_SUBFOLDERS_KEY);
+            return local ? JSON.parse(local) : [];
+          }
+        },
+
+        subscribeToRepositories(callback) {
+          return onValue(ref(rtdb, "repositories"), (snapshot) => {
+            if (snapshot.exists()) {
+              callback(Object.values(snapshot.val()).filter(r => r && !DEFAULT_DEMO_REPO_IDS.includes(r.id)));
+            } else {
+              callback([]);
+            }
+          });
+        },
+
+        subscribeToSubfolders(callback) {
+          return onValue(ref(rtdb, "subfolders"), (snapshot) => {
+            if (snapshot.exists()) {
+              callback(Object.values(snapshot.val()));
+            } else {
+              callback([]);
+            }
+          });
+        },
+
+        subscribeToQuestions(callback) {
+          return onValue(ref(rtdb, "questions_answers"), (snapshot) => {
+            if (snapshot.exists()) {
+              callback(Object.values(snapshot.val()).filter(q => q && !DEFAULT_DEMO_QUESTION_IDS.includes(q.id)));
+            } else {
+              callback([]);
+            }
+          });
+        },
+
+        async fetchContests() {
+          try {
+            const snapshot = await get(ref(rtdb, "contests"));
+            if (snapshot.exists()) return Object.values(snapshot.val());
+            return [];
+          } catch (err) {
+            const local = localStorage.getItem(LOCAL_STORAGE_CONTESTS_KEY);
+            return local ? JSON.parse(local) : [];
+          }
+        },
+
+        subscribeToContests(callback) {
+          return onValue(ref(rtdb, "contests"), (snapshot) => {
+            if (snapshot.exists()) callback(Object.values(snapshot.val()));
+            else callback([]);
+          });
+        },
+
+        async submitContestApplication(application) {
+          const id = `app-${Date.now()}`;
+          const now = new Date().toISOString();
+          const appData = { ...application, id, status: application.status || 'Pending', appliedAt: now };
+          try { await set(ref(rtdb, `contest_applications/${id}`), appData); } catch (e) { console.warn(e); }
+          const localApps = localStorage.getItem("hootminer_applications");
+          const parsed = localApps ? JSON.parse(localApps) : [];
+          parsed.push(appData);
+          localStorage.setItem("hootminer_applications", JSON.stringify(parsed));
+          return appData;
+        },
+
+        async fetchContestApplications() {
+          try {
+            const snapshot = await get(ref(rtdb, "contest_applications"));
+            if (snapshot.exists()) return Object.values(snapshot.val());
+            return [];
+          } catch (e) {
+            const local = localStorage.getItem("hootminer_applications");
+            return local ? JSON.parse(local) : [];
+          }
+        },
+
+        subscribeToApplications(callback) {
+          return onValue(ref(rtdb, "contest_applications"), (snapshot) => {
+            if (snapshot.exists()) callback(Object.values(snapshot.val()));
+            else callback([]);
+          });
+        },
+
+        async updateApplicationStatus(appId, newStatus) {
+          try { await set(ref(rtdb, `contest_applications/${appId}/status`), newStatus); } catch (e) { console.warn(e); }
+          const localApps = localStorage.getItem("hootminer_applications");
+          if (localApps) {
+            const parsed = JSON.parse(localApps);
+            const idx = parsed.findIndex(a => a.id === appId);
+            if (idx >= 0) {
+              parsed[idx].status = newStatus;
+              localStorage.setItem("hootminer_applications", JSON.stringify(parsed));
+            }
+          }
+          return true;
+        },
+
+        async loginUserAccount(email, password) {
+          const cleanEmail = email.trim().toLowerCase();
+          try {
+            const safeKey = cleanEmail.replace(/[^a-zA-Z0-9]/g, "_");
+            const snapshot = await get(ref(rtdb, `users/${safeKey}`));
+            if (snapshot.exists()) {
+              const user = snapshot.val();
+              if (user.password === password) {
+                localStorage.setItem("hootminer_current_user", JSON.stringify(user));
+                return { success: true, user };
+              } else {
+                return { success: false, message: "Incorrect password. Please check your password." };
+              }
+            }
+          } catch (e) {
+            console.warn("Firebase login fallback:", e);
+          }
+
           const localUsers = localStorage.getItem("hootminer_all_users");
           const parsed = localUsers ? JSON.parse(localUsers) : [];
-          const idx = parsed.findIndex(u => u.contactEmail.toLowerCase() === userData.contactEmail.toLowerCase());
-          if (idx >= 0) parsed[idx] = userData;
-          else parsed.push(userData);
-          localStorage.setItem("hootminer_all_users", JSON.stringify(parsed));
+          const user = parsed.find(u => u.contactEmail.toLowerCase() === cleanEmail);
 
-          try {
-            const safeKey = userData.contactEmail.replace(/[^a-zA-Z0-9]/g, "_");
-            await set(ref(rtdb, `users/${safeKey}`), userData);
-          } catch (e) {
-            console.warn("Firebase user sync:", e);
+          if (user) {
+            if (user.password === password) {
+              localStorage.setItem("hootminer_current_user", JSON.stringify(user));
+              return { success: true, user };
+            } else {
+              return { success: false, message: "Incorrect password. Please check your password." };
+            }
           }
-          return userData;
+
+          return { success: false, message: "No account found with this email. Please click 'Create New Account'." };
         }
       };
-      window.dispatchEvent(new Event('HootAuthReady'));
+      window.dispatchEvent(new Event('HootDBReady'));
     </script>
 
+    <!-- Main Standalone React Application Script -->
     <script type="text/babel">
-      const { useState } = React;
+      const { useState, useEffect, useMemo, useRef } = React;
 
-      function SignUpApp() {
-        const [fullName, setFullName] = useState('');
-        const [aadharNo, setAadharNo] = useState('');
-        const [educationDegree, setEducationDegree] = useState('1st yr');
-        const [gender, setGender] = useState('Male');
-        const [contactEmail, setContactEmail] = useState('');
-        const [password, setPassword] = useState('');
-        const [error, setError] = useState('');
-        const [loading, setLoading] = useState(false);
+      // Icon Component
+      function Icon({ name, className = "w-4 h-4" }) {
+        const svgProps = {
+          xmlns: "http://www.w3.org/2000/svg",
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: "2",
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          className
+        };
 
-        const handleSubmit = async (e) => {
-          e.preventDefault();
-          setError('');
+        switch (name) {
+          case 'Terminal':
+            return <svg {...svgProps}><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>;
+          case 'Home':
+            return <svg {...svgProps}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+          case 'FolderGit2':
+            return <svg {...svgProps}><path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5"/><circle cx="13" cy="12" r="2"/><path d="M18 19c-2.8 0-5-2.2-5-5v-2"/><circle cx="20" cy="19" r="2"/></svg>;
+          case 'Menu':
+            return <svg {...svgProps}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>;
+          case 'X':
+            return <svg {...svgProps}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+          case 'Play':
+            return <svg {...svgProps}><polygon points="6 3 20 12 6 21 6 3"/></svg>;
+          case 'Code2':
+            return <svg {...svgProps}><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>;
+          case 'Rocket':
+            return <svg {...svgProps}><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>;
+          case 'ArrowRight':
+            return <svg {...svgProps}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>;
+          case 'Zap':
+            return <svg {...svgProps}><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>;
+          case 'User':
+            return <svg {...svgProps}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+          case 'Trophy':
+            return <svg {...svgProps}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>;
+          case 'LogOut':
+            return <svg {...svgProps}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>;
+          case 'Search':
+            return <svg {...svgProps}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>;
+          case 'Key':
+            return <svg {...svgProps}><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg>;
+          case 'Copy':
+            return <svg {...svgProps}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>;
+          case 'CheckCircle2':
+            return <svg {...svgProps}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>;
+          case 'HelpCircle':
+            return <svg {...svgProps}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>;
+          case 'ArrowUpDown':
+            return <svg {...svgProps}><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>;
+          case 'Clock':
+            return <svg {...svgProps}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+          case 'ChevronRight':
+            return <svg {...svgProps}><path d="m9 18 6-6-6-6"/></svg>;
+          case 'Check':
+            return <svg {...svgProps}><path d="M20 6 9 17l-5-5"/></svg>;
+          case 'BookOpen':
+            return <svg {...svgProps}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
+          case 'RotateCcw':
+            return <svg {...svgProps}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
+          case 'Monitor':
+            return <svg {...svgProps}><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>;
+          case 'Cpu':
+            return <svg {...svgProps}><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>;
+          case 'FileCode':
+            return <svg {...svgProps}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><polyline points="14 2 14 8 20 8"/><path d="m10 13-2 2 2 2"/><path d="m14 13 2 2-2 2"/></svg>;
+          case 'Info':
+            return <svg {...svgProps}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>;
+          case 'ArrowLeft':
+            return <svg {...svgProps}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>;
+          case 'Folder':
+            return <svg {...svgProps}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3A2 2 0 0 0 6.9 2.5H4a2 2 0 0 0-2 2v13.5A2 2 0 0 0 4 20h16z"/></svg>;
+          case 'FolderPlus':
+            return <svg {...svgProps}><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3A2 2 0 0 0 6.9 2.5H4a2 2 0 0 0-2 2v13.5A2 2 0 0 0 4 20h16z"/></svg>;
+          case 'Share2':
+            return <svg {...svgProps}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>;
+          default:
+            return <svg {...svgProps}><circle cx="12" cy="12" r="10"/></svg>;
+        }
+      }
 
-          if (!fullName.trim() || !aadharNo.trim() || !contactEmail.trim() || !password.trim()) {
-            setError('Please fill out all required fields.');
-            return;
-          }
+      // Toast Components
+      function ToastContainer({ toasts, removeToast }) {
+        return (
+          <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+            {toasts.map((toast) => (
+              <ToastItem key={toast.id} toast={toast} onDismiss={() => removeToast(toast.id)} />
+            ))}
+          </div>
+        );
+      }
 
-          if (aadharNo.trim().length < 12) {
-            setError('Aadhar number must be at least 12 digits.');
-            return;
-          }
+      function ToastItem({ toast, onDismiss }) {
+        useEffect(() => {
+          const timer = setTimeout(() => onDismiss(), toast.duration || 3500);
+          return () => clearTimeout(timer);
+        }, [toast, onDismiss]);
 
-          setLoading(true);
+        const borders = {
+          success: 'border-emerald-500/30 bg-emerald-950/80 text-emerald-100',
+          error: 'border-rose-500/30 bg-rose-950/80 text-rose-100',
+          warning: 'border-amber-500/30 bg-amber-950/80 text-amber-100',
+          info: 'border-cyan-500/30 bg-cyan-950/80 text-cyan-100'
+        };
 
-          const userData = {
-            fullName: fullName.trim(),
-            aadharNo: aadharNo.trim(),
-            educationDegree, // '1st yr' | '2nd yr' | '3rd yr'
-            gender, // 'Male' | 'Female'
-            contactEmail: contactEmail.trim().toLowerCase(),
-            password: password.trim(),
-            createdAt: new Date().toISOString()
-          };
+        return (
+          <div className={`pointer-events-auto flex items-center justify-between gap-3 p-4 rounded-2xl border backdrop-blur-md shadow-xl transition-all ${borders[toast.type] || borders.info}`}>
+            <div className="flex items-center gap-3">
+              <Icon name={toast.type === 'success' ? 'CheckCircle2' : 'Info'} className="w-5 h-5 shrink-0" />
+              <span className="text-sm font-semibold">{toast.message}</span>
+            </div>
+            <button onClick={onDismiss} className="text-slate-400 hover:text-slate-200 p-1 rounded-lg">
+              <Icon name="X" className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      }
 
+      // Navbar Component with Right Side Profile Icon
+      function Navbar({ activeTab, setActiveTab, currentUser, onOpenProfileModal, onOpenLoginModal }) {
+        const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+        return (
+          <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-2xl border-b border-slate-200/80 shadow-sm">
+            <div className="h-[3px] w-full bg-gradient-to-r from-purple-600 via-pink-500 to-sky-500" />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+              
+              <div onClick={() => setActiveTab('home')} className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 via-pink-500 to-sky-500 p-[1.5px] shadow-md shadow-purple-500/20 group-hover:scale-105 transition-all">
+                  <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
+                    <Icon name="Terminal" className="w-5 h-5 text-purple-600 group-hover:text-pink-600 transition-colors" />
+                  </div>
+                </div>
+                <span className="font-black text-xl tracking-tight text-slate-900 group-hover:text-purple-700 transition-colors">
+                  Hoot <span className="gradient-text-purple">Miner</span>
+                </span>
+              </div>
+
+              {/* Desktop Nav Links */}
+              <nav className="hidden md:flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 shadow-inner">
+                <button
+                  onClick={() => setActiveTab('home')}
+                  className={`flex items-center gap-2 px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+                    activeTab === 'home'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                  }`}
+                >
+                  <Icon name="Home" className={`w-4 h-4 ${activeTab === 'home' ? 'text-white' : 'text-purple-600'}`} />
+                  <span>Home</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('repos')}
+                  className={`flex items-center gap-2 px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+                    activeTab === 'repos' || activeTab === 'repo-detail'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                  }`}
+                >
+                  <Icon name="FolderGit2" className={`w-4 h-4 ${activeTab === 'repos' || activeTab === 'repo-detail' ? 'text-white' : 'text-pink-600'}`} />
+                  <span>Workspace</span>
+                </button>
+              </nav>
+
+              {/* Right Action Bar with Profile Icon */}
+              <div className="flex items-center gap-3">
+                
+                {/* Profile Icon Button */}
+                {currentUser ? (
+                  <button
+                    onClick={onOpenProfileModal}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 hover:bg-purple-100 transition-all cursor-pointer shadow-sm"
+                    title="User Profile"
+                  >
+                    <div className="w-7 h-7 rounded-xl bg-purple-600 text-white text-xs font-extrabold flex items-center justify-center">
+                      {currentUser.fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-xs font-extrabold hidden sm:inline">{currentUser.fullName.split(' ')[0]}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={onOpenLoginModal}
+                    className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-extrabold hover:shadow-md transition-all cursor-pointer shadow-sm"
+                  >
+                    <Icon name="User" className="w-4 h-4" />
+                    <span>Login / Register</span>
+                  </button>
+                )}
+
+                <div className="md:hidden flex items-center gap-2">
+                  <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2.5 rounded-2xl bg-white text-slate-600 border border-slate-200 shadow-sm">
+                    <Icon name={mobileMenuOpen ? "X" : "Menu"} className="w-5 h-5 text-purple-600" />
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+            {mobileMenuOpen && (
+              <div className="md:hidden border-t border-slate-200 bg-white p-4 space-y-2 shadow-lg">
+                <button onClick={() => { setActiveTab('home'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 hover:bg-purple-50">
+                  <Icon name="Home" className="w-4 h-4 text-purple-600" /> Home
+                </button>
+                <button onClick={() => { setActiveTab('repos'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 hover:bg-purple-50">
+                  <Icon name="FolderGit2" className="w-4 h-4 text-pink-600" /> Workspace Repositories
+                </button>
+              </div>
+            )}
+          </header>
+        );
+      }
+
+      // LandingHero Component
+      function LandingHero({ onLaunchWorkspace, onOpenLiveTests }) {
+        return (
+          <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28">
+            <div className="gradient-glow-bg"></div>
+            <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
+              
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100/90 border border-purple-300/80 backdrop-blur-md mb-8 text-xs font-bold text-purple-900 shadow-sm">
+                <Icon name="Zap" className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+                <span>Realtime Solution Mining Engine & Live Tests</span>
+              </div>
+
+              <h1 className="text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-slate-900 mb-6 leading-[1.15]">
+                Mine Clean Code & <br />
+                <span className="gradient-text-purple">Browse Workspace Solutions</span>
+              </h1>
+
+              <p className="max-w-2xl mx-auto text-base sm:text-lg text-slate-600 mb-10 font-medium leading-relaxed">
+                An intuitive platform for developers. Explore repository collections, browse subfolders, access code solutions for C, Python, Java, and view live test answer keys!
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14 max-w-xl mx-auto">
+                <button
+                  onClick={onLaunchWorkspace}
+                  className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-base shadow-xl hover:scale-[1.03] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+                >
+                  <Icon name="Rocket" className="w-5 h-5 text-purple-100" />
+                  <span>Launch Workspace</span>
+                  <Icon name="ArrowRight" className="w-4 h-4 text-purple-100" />
+                </button>
+
+                <button
+                  onClick={onOpenLiveTests}
+                  className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:border-purple-400 hover:text-purple-700 transition-all flex items-center justify-center gap-3 shadow-sm cursor-pointer"
+                >
+                  <Icon name="Trophy" className="w-4 h-4 text-amber-500" />
+                  <span>Explore Live Tests</span>
+                </button>
+              </div>
+
+            </div>
+          </section>
+        );
+      }
+
+      // Individual Live Test Card with Answer Key Option
+      function ContestCard({ contest, onViewAnswerKey, addToast }) {
+        const [isFlipped, setIsFlipped] = useState(false);
+        const [copiedShare, setCopiedShare] = useState(false);
+        const questionCount = Array.isArray(contest.questions) ? contest.questions.length : 0;
+        const duration = contest.duration || contest.limits || '60 Mins';
+
+        const handleShareExam = (e) => {
+          if (e) e.stopPropagation();
           try {
-            if (window.HootAuth) {
-              await window.HootAuth.registerUser(userData);
+            const url = new URL(window.location.href);
+            url.searchParams.set('examId', contest.id);
+            const shareUrlStr = url.toString();
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(shareUrlStr);
             } else {
-              localStorage.setItem("hootminer_current_user", JSON.stringify(userData));
+              const textArea = document.createElement("textarea");
+              textArea.value = shareUrlStr;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textArea);
             }
 
-            setTimeout(() => {
-              window.location.href = 'index.html';
-            }, 300);
+            setCopiedShare(true);
+            if (addToast) addToast(`Share link for "${contest.title}" copied to clipboard! 🔗`, 'success');
+            setTimeout(() => setCopiedShare(false), 2500);
           } catch (err) {
-            setError('Failed to create account. Please try again.');
-            setLoading(false);
+            console.error("Failed to copy link:", err);
           }
         };
 
         return (
-          <div className="min-h-screen flex flex-col justify-center items-center px-4 py-12">
-            
-            {/* Logo Bar */}
-            <a href="index.html" className="flex items-center gap-3 mb-8 group cursor-pointer">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-600 via-pink-500 to-sky-500 p-[1.5px] shadow-lg group-hover:scale-105 transition-all">
-                <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-                </div>
-              </div>
-              <span className="font-black text-2xl tracking-tight text-slate-900">
-                Hoot <span className="gradient-text-purple">Miner</span>
-              </span>
-            </a>
-
-            {/* Signup Form Box */}
-            <div className="w-full max-w-lg glass-panel p-8 sm:p-10 rounded-3xl bg-white shadow-2xl relative overflow-hidden">
-              <div className="text-center mb-8">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900">Create New Account</h1>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
-                  Register once to access live tests, developer repos, and answer keys anytime!
-                </p>
-              </div>
-
-              {error && (
-                <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-rose-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  <span>{error}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                
-                {/* Full Name */}
+          <div className="w-full max-w-sm h-[495px] perspective-1000">
+            <div className={`relative w-full h-full preserve-3d transition-transform duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}>
+              
+              {/* FRONT OF CARD */}
+              <div className="absolute inset-0 backface-hidden w-full h-full bg-slate-900/95 border border-slate-800 rounded-3xl overflow-hidden flex flex-col justify-between shadow-2xl hover:border-purple-500/50 transition-all group">
                 <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="John Doe"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:border-purple-500 shadow-sm"
-                  />
-                </div>
+                  {/* Test Image */}
+                  <div className="h-44 w-full relative overflow-hidden bg-slate-800">
+                    <img src={contest.image} alt={contest.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                      <div className="px-3 py-1 rounded-xl text-[10px] font-extrabold uppercase bg-purple-600 text-white shadow-lg">
+                        {contest.status || 'Active'}
+                      </div>
+                    </div>
 
-                {/* Adhar No */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
-                    Adhar No *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={aadharNo}
-                    onChange={(e) => setAadharNo(e.target.value)}
-                    placeholder="12-digit Adhar Number"
-                    maxLength={14}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:border-purple-500 shadow-sm"
-                  />
-                </div>
-
-                {/* Grid for Education degree & Gender */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  
-                  {/* Education Degree */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
-                      Education Degree *
-                    </label>
-                    <select
-                      value={educationDegree}
-                      onChange={(e) => setEducationDegree(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none cursor-pointer shadow-sm"
-                    >
-                      <option value="1st yr">1st yr</option>
-                      <option value="2nd yr">2nd yr</option>
-                      <option value="3rd yr">3rd yr</option>
-                    </select>
+                    <div className="absolute bottom-3 left-3 px-3 py-1 rounded-xl text-[10px] font-extrabold bg-slate-950/80 text-amber-300 backdrop-blur-md border border-slate-700">
+                      ⏱️ {duration}
+                    </div>
                   </div>
 
-                  {/* Gender */}
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
-                      Gender *
-                    </label>
-                    <select
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none cursor-pointer shadow-sm"
-                    >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                    </select>
+                  {/* Content Preview */}
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-black text-purple-300 bg-purple-950/80 px-2.5 py-1 rounded-xl border border-purple-700/60">
+                        📝 {questionCount} Answer {questionCount === 1 ? 'Key' : 'Keys'}
+                      </span>
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-purple-300 transition-colors line-clamp-1">
+                      {contest.title}
+                    </h3>
+                    
+                    <p className="text-xs text-slate-300 leading-relaxed font-medium mb-4 line-clamp-3">
+                      {contest.description}
+                    </p>
                   </div>
                 </div>
 
-                {/* Contact Email */}
+                {/* Action Row */}
+                <div className="p-6 pt-0 flex items-center gap-2">
+                  <button
+                    onClick={() => onViewAnswerKey(contest)}
+                    className="flex-1 py-3 px-3 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg hover:shadow-purple-600/50 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Icon name="Key" className="w-4 h-4" />
+                    <span>View Key</span>
+                  </button>
+
+                  <button
+                    onClick={handleShareExam}
+                    className={`py-3 px-3 rounded-2xl font-extrabold text-xs border transition-all cursor-pointer flex items-center gap-1 ${
+                      copiedShare
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                        : 'bg-slate-800 hover:bg-slate-700 text-purple-300 hover:text-white border-slate-700'
+                    }`}
+                    title="Copy direct shareable link for this exam"
+                  >
+                    <Icon name={copiedShare ? "Check" : "Share2"} className="w-3.5 h-3.5" />
+                    <span>{copiedShare ? "Copied!" : "Share 🔗"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsFlipped(true)}
+                    className="py-3 px-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-xs border border-slate-700 transition-all cursor-pointer flex items-center gap-1"
+                    title="Click to view full exam details"
+                  >
+                    <Icon name="RotateCcw" className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Details 🔄</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* BACK OF CARD (FLIPPED VIEW WITH FULL EXAM DETAILS) */}
+              <div className="absolute inset-0 backface-hidden rotate-y-180 w-full h-full bg-slate-900 border-2 border-purple-500/80 rounded-3xl p-6 flex flex-col justify-between shadow-2xl text-white">
                 <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
-                    Contact Email *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={contactEmail}
-                    onChange={(e) => setContactEmail(e.target.value)}
-                    placeholder="user@example.com"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:border-purple-500 shadow-sm"
-                  />
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Exam Overview & Rules</span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-purple-900/80 text-purple-200 text-[10px] font-bold border border-purple-700">Verified</span>
+                  </div>
+
+                  <h3 className="text-lg font-black text-white mb-2">{contest.title}</h3>
+
+                  <div className="text-xs text-slate-300 leading-relaxed font-medium mb-4 max-h-40 overflow-y-auto pr-1">
+                    <div className="font-bold text-slate-200 mb-1">Details & Overview:</div>
+                    {contest.description}
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-purple-950/60 border border-purple-800 text-xs font-semibold text-purple-200 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-purple-400">Time Duration:</span>
+                      <span className="font-mono text-amber-300 font-bold">{duration}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-400">Answer Keys Included:</span>
+                      <span className="text-white font-bold">{questionCount} Questions</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Password / Security PIN */}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">
-                    Account Password *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:border-purple-500 shadow-sm"
-                  />
+                <div className="pt-3 border-t border-slate-800 flex items-center gap-2">
+                  <button
+                    onClick={() => onViewAnswerKey(contest)}
+                    className="flex-1 py-3 px-3 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Icon name="Key" className="w-4 h-4" />
+                    <span>View Key</span>
+                  </button>
+
+                  <button
+                    onClick={handleShareExam}
+                    className={`py-3 px-3 rounded-2xl font-extrabold text-xs border transition-all cursor-pointer flex items-center gap-1 ${
+                      copiedShare
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                        : 'bg-slate-800 hover:bg-slate-700 text-purple-300 hover:text-white border-slate-700'
+                    }`}
+                    title="Copy direct shareable link for this exam"
+                  >
+                    <Icon name={copiedShare ? "Check" : "Share2"} className="w-3.5 h-3.5" />
+                    <span>{copiedShare ? "Copied!" : "Share 🔗"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsFlipped(false)}
+                    className="py-3 px-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-extrabold text-xs border border-slate-700 cursor-pointer flex items-center gap-1"
+                  >
+                    <Icon name="RotateCcw" className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Flip Back ↩️</span>
+                  </button>
                 </div>
-
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-sm shadow-xl shadow-purple-600/30 hover:shadow-purple-600/50 hover:scale-[1.01] transition-all cursor-pointer mt-6"
-                >
-                  {loading ? 'Creating Account...' : 'Complete Registration & Sign In'}
-                </button>
-              </form>
-
-              {/* Already have an account link */}
-              <div className="mt-6 text-center text-xs text-slate-500 font-medium">
-                Already registered?{' '}
-                <a href="index.html" className="font-bold text-purple-700 hover:underline">
-                  Return to Home & Login
-                </a>
               </div>
 
             </div>
@@ -299,7 +789,1101 @@
         );
       }
 
-      ReactDOM.createRoot(document.getElementById('signup-root')).render(<SignUpApp />);
+      // HOME SECTION: Live Tests & Exam Answer Keys Section
+      function ContestsSection({ contests, onViewAnswerKey, addToast }) {
+        return (
+          <section id="live-tests" className="py-16 bg-gradient-to-b from-slate-900 via-purple-950 to-slate-950 text-white relative overflow-hidden">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              
+              <div className="text-center max-w-2xl mx-auto mb-12">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-bold mb-3">
+                  <Icon name="Trophy" className="w-4 h-4 text-amber-400" />
+                  <span>Admin Set Exam Keys</span>
+                </div>
+                <h2 className="text-3xl sm:text-5xl font-black mb-3">
+                  Live Tests & <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-sky-400">Answer Keys</span>
+                </h2>
+                <p className="text-sm sm:text-base text-slate-300 font-medium">
+                  Access live exam answer keys set by admins. Click 'View Key' to see questions and copy answers with one click!
+                </p>
+              </div>
+
+              {contests.length > 0 ? (
+                /* Auto-centered flex container */
+                <div className="flex flex-wrap justify-center items-center gap-8 max-w-6xl mx-auto">
+                  {contests.map((contest) => (
+                    <ContestCard
+                      key={contest.id}
+                      contest={contest}
+                      onViewAnswerKey={onViewAnswerKey}
+                      addToast={addToast}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="p-12 text-center bg-slate-900/50 rounded-3xl border border-slate-800 max-w-xl mx-auto">
+                  <Icon name="Trophy" className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <div className="text-slate-300 font-bold text-base">No active live tests at the moment</div>
+                  <div className="text-xs text-slate-500 mt-1">Admin will publish new live tests with answer keys shortly. Check back soon!</div>
+                </div>
+              )}
+
+            </div>
+          </section>
+        );
+      }
+
+      // Modal Component for Viewing Exam Questions & Answer Keys with Copy Button
+      function ViewAnswerKeyModal({ test, onClose, addToast }) {
+        const [copiedIndex, setCopiedIndex] = useState(null);
+        const [copiedShare, setCopiedShare] = useState(false);
+
+        if (!test) return null;
+        const questions = Array.isArray(test.questions) ? test.questions : [];
+
+        const handleCopyAnswer = (answerText, index) => {
+          if (!answerText) return;
+          navigator.clipboard.writeText(answerText);
+          setCopiedIndex(index);
+          addToast(`Question #${index + 1} answer copied to clipboard!`, 'success');
+          setTimeout(() => {
+            setCopiedIndex(null);
+          }, 2500);
+        };
+
+        const handleShareExamLink = () => {
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('examId', test.id);
+            const shareUrlStr = url.toString();
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(shareUrlStr);
+            } else {
+              const textArea = document.createElement("textarea");
+              textArea.value = shareUrlStr;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand("copy");
+              document.body.removeChild(textArea);
+            }
+
+            setCopiedShare(true);
+            if (addToast) addToast(`Live Exam share link copied to clipboard! 🔗`, 'success');
+            setTimeout(() => setCopiedShare(false), 2500);
+          } catch(err) {
+            console.error("Failed to copy share link:", err);
+          }
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <div className="relative w-full max-w-3xl bg-slate-900 border border-purple-500/40 rounded-3xl shadow-2xl p-6 sm:p-8 max-h-[90vh] flex flex-col justify-between text-white">
+              
+              {/* Header */}
+              <div>
+                <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400">
+                      <Icon name="Key" className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase text-purple-400 tracking-wider">Exam Answer Key</span>
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                          ⏱️ {test.duration || test.limits || '60 Mins'}
+                        </span>
+                      </div>
+                      <h3 className="text-xl font-black text-white">{test.title}</h3>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleShareExamLink}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-extrabold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                        copiedShare
+                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                          : 'bg-purple-950/80 hover:bg-purple-900 text-purple-200 hover:text-white border-purple-700/60'
+                      }`}
+                      title="Copy direct shareable link for this live exam"
+                    >
+                      <Icon name={copiedShare ? "Check" : "Share2"} className="w-3.5 h-3.5" />
+                      <span>{copiedShare ? "Link Copied! ✓" : "Share 🔗"}</span>
+                    </button>
+
+                    <button
+                      onClick={onClose}
+                      className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all cursor-pointer"
+                    >
+                      <Icon name="X" className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Exam Overview */}
+                {test.description && (
+                  <div className="mb-6 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 text-xs font-medium text-slate-300 leading-relaxed">
+                    <strong className="text-white block mb-1">Details & Rules:</strong>
+                    {test.description}
+                  </div>
+                )}
+              </div>
+
+              {/* Questions & Answer Keys List */}
+              <div className="flex-1 overflow-y-auto space-y-6 pr-2 mb-4">
+                {questions.length > 0 ? (
+                  questions.map((q, idx) => (
+                    <div key={q.id || idx} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 shadow-md">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <span className="px-2.5 py-1 rounded-xl bg-purple-900/80 text-purple-200 text-xs font-mono font-black border border-purple-700 shrink-0">
+                            Q{idx + 1}
+                          </span>
+                          <h4 className="text-sm font-bold text-white leading-snug pt-0.5">{q.questionText}</h4>
+                        </div>
+
+                        {/* Copy Answer Button */}
+                        <button
+                          onClick={() => handleCopyAnswer(q.answerText, idx)}
+                          className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                            copiedIndex === idx
+                              ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg scale-105'
+                              : 'bg-slate-800 hover:bg-purple-600 text-purple-300 hover:text-white border-slate-700 hover:border-purple-500'
+                          }`}
+                        >
+                          {copiedIndex === idx ? (
+                            <>
+                              <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                              <span>Copied! ✓</span>
+                            </>
+                          ) : (
+                            <>
+                              <Icon name="Copy" className="w-3.5 h-3.5" />
+                              <span>Copy Answer</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Answer Key Content */}
+                      <div className="relative group">
+                        <pre className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono text-cyan-200 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                          {q.answerText}
+                        </pre>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 text-center text-slate-500 font-medium text-xs">
+                    No answer keys specified for this exam yet.
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-4 border-t border-slate-800 flex items-center justify-end">
+                <button
+                  onClick={onClose}
+                  className="px-6 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-extrabold cursor-pointer"
+                >
+                  Close Key Window
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      }
+
+      // FeatureGrid Component
+      function FeatureGrid() {
+        const features = [
+          {
+            icon: 'Search',
+            iconColor: 'text-sky-600',
+            title: "Lightning Fast Search",
+            badge: "Real-time",
+            description: "Instantly filter across titles, category tags, and problem statements with zero input lag.",
+            iconBg: "bg-sky-50 border-sky-200",
+            badgeClass: "bg-sky-100 text-sky-800 border-sky-300"
+          },
+          {
+            icon: 'Code2',
+            iconColor: 'text-purple-600',
+            title: "Multi-Language Snippets",
+            badge: "Polyglot",
+            description: "Clean solutions formatted with syntax highlighting for Python, JS, C++, SQL & more.",
+            iconBg: "bg-purple-50 border-purple-200",
+            badgeClass: "bg-purple-100 text-purple-800 border-purple-300"
+          },
+          {
+            icon: 'Copy',
+            iconColor: 'text-emerald-600',
+            title: "One-Click Copy & Toast",
+            badge: "Instant",
+            description: "Copy any code snippet directly to clipboard with instant checkmark state and feedback notifications.",
+            iconBg: "bg-emerald-50 border-emerald-200",
+            badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300"
+          }
+        ];
+
+        return (
+          <section className="py-16 bg-slate-100/70 border-y border-slate-200/80 relative">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {features.map((item, idx) => (
+                  <div key={idx} className="glass-card p-6 sm:p-8 rounded-3xl relative group">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className={`w-12 h-12 rounded-2xl ${item.iconBg} border flex items-center justify-center shadow-sm`}>
+                        <Icon name={item.icon} className={`w-6 h-6 ${item.iconColor}`} />
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-[11px] font-bold border uppercase ${item.badgeClass}`}>
+                        {item.badge}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-purple-700 transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                      {item.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      // RepositoryHub Component (Level 1: Repositories List)
+      function RepositoryHub({ repositories, subfolders, questions, onSelectRepo }) {
+        const [selectedCategory, setSelectedCategory] = useState('All');
+        const [searchQuery, setSearchQuery] = useState('');
+        const [sortBy, setSortBy] = useState('newest');
+
+        const categories = useMemo(() => ['All', 'C / C++', 'Python', 'Java'], []);
+
+        const repoSubfolderCounts = useMemo(() => {
+          const counts = {};
+          (subfolders || []).forEach(sf => { counts[sf.repositoryId] = (counts[sf.repositoryId] || 0) + 1; });
+          return counts;
+        }, [subfolders]);
+
+        const repoQuestionCounts = useMemo(() => {
+          const counts = {};
+          (questions || []).forEach(q => { counts[q.repositoryId] = (counts[q.repositoryId] || 0) + 1; });
+          return counts;
+        }, [questions]);
+
+        const filteredRepos = useMemo(() => {
+          return repositories.filter(repo => {
+            const matchesCategory = selectedCategory === 'All' || repo.category === selectedCategory;
+            const matchesSearch = repo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                  repo.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                  repo.category.toLowerCase().includes(searchQuery.toLowerCase());
+            return matchesCategory && matchesSearch && repo.visibility !== 'Draft';
+          }).sort((a, b) => {
+            if (sortBy === 'newest') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+            if (sortBy === 'questions') return (repoQuestionCounts[b.id] || 0) - (repoQuestionCounts[a.id] || 0);
+            if (sortBy === 'title') return a.title.localeCompare(b.title);
+            return 0;
+          });
+        }, [repositories, selectedCategory, searchQuery, sortBy, repoQuestionCounts]);
+
+        return (
+          <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-bold text-purple-600 uppercase tracking-widest mb-1">
+                  <Icon name="FolderGit2" className="w-4 h-4" />
+                  <span>Public Code Workspaces</span>
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-black text-slate-900">
+                  Repository <span className="gradient-text-purple">Collection</span>
+                </h2>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1 sm:w-64">
+                  <Icon name="Search" className="w-4 h-4 text-purple-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search repositories..."
+                    className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 shadow-sm font-medium"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 overflow-x-auto pb-4 mb-8">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-5 py-2.5 rounded-2xl text-xs font-extrabold whitespace-nowrap border transition-all cursor-pointer ${
+                    selectedCategory === cat
+                      ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white border-purple-600 shadow-md'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-purple-300 hover:text-purple-700 shadow-sm'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {filteredRepos.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredRepos.map((repo) => {
+                  const sfCount = repoSubfolderCounts[repo.id] || 0;
+                  const qCount = repoQuestionCounts[repo.id] || 0;
+                  return (
+                    <div
+                      key={repo.id}
+                      onClick={() => onSelectRepo(repo)}
+                      className="glass-card p-6 rounded-3xl cursor-pointer flex flex-col justify-between group hover:border-purple-300 transition-all shadow-sm"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                            {repo.category}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                            <Icon name="Folder" className="w-3 h-3 text-indigo-500" />
+                            {sfCount} {sfCount === 1 ? 'Folder' : 'Folders'}
+                          </span>
+                        </div>
+
+                        <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-purple-700 transition-colors line-clamp-2">
+                          {repo.title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-600 line-clamp-3 mb-6 font-medium leading-relaxed">
+                          {repo.description}
+                        </p>
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-purple-700 font-extrabold">
+                        <span className="flex items-center gap-1">
+                          <Icon name="HelpCircle" className="w-3.5 h-3.5 text-sky-600" />
+                          {qCount} Q&A Solutions
+                        </span>
+                        <span className="group-hover:translate-x-1 transition-transform">Explore Subfolders &rarr;</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto">
+                <Icon name="FolderGit2" className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <div className="text-slate-900 font-bold text-base">No repositories found</div>
+                <p className="text-xs text-slate-500 mt-1">Try selecting another category or clear your search term.</p>
+              </div>
+            )}
+          </section>
+        );
+      }
+
+      // RepositoryDetailView Component (Level 2: Subfolders Grid & Level 3: Questions & Solutions inside Subfolder)
+      function RepositoryDetailView({ repo, subfolders, questions, onBack, addToast }) {
+        const [selectedSubfolder, setSelectedSubfolder] = useState(null);
+        const [copiedId, setCopiedId] = useState(null);
+
+        const repoSubfolders = useMemo(() => {
+          return (subfolders || []).filter(sf => sf.repositoryId === repo.id);
+        }, [subfolders, repo.id]);
+
+        const handleCopyCode = (codeText, questionId) => {
+          if (!codeText) return;
+          navigator.clipboard.writeText(codeText);
+          setCopiedId(questionId);
+          if (addToast) addToast('Code snippet copied to clipboard!', 'success');
+          setTimeout(() => setCopiedId(null), 2000);
+        };
+
+        // Level 3: Questions List inside Selected Subfolder
+        if (selectedSubfolder) {
+          const subfolderQuestions = questions.filter(q => q.subfolderId === selectedSubfolder.id);
+
+          return (
+            <section className="py-8 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+              {/* Breadcrumb Trail */}
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-6 flex-wrap">
+                <button onClick={onBack} className="hover:text-purple-700 flex items-center gap-1">
+                  <Icon name="FolderGit2" className="w-3.5 h-3.5" /> Workspace
+                </button>
+                <span>/</span>
+                <button onClick={() => setSelectedSubfolder(null)} className="hover:text-purple-700">
+                  {repo.title}
+                </button>
+                <span>/</span>
+                <span className="text-purple-700 flex items-center gap-1">
+                  <Icon name="Folder" className="w-3.5 h-3.5" /> {selectedSubfolder.folderName}
+                </span>
+              </div>
+
+              {/* Subfolder Header Card */}
+              <div className="glass-panel p-6 sm:p-8 rounded-3xl mb-8 bg-white shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <button
+                      onClick={() => setSelectedSubfolder(null)}
+                      className="p-2 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold hover:bg-purple-100 transition-all flex items-center gap-1"
+                    >
+                      <Icon name="ArrowLeft" className="w-3.5 h-3.5" /> Back to Subfolders
+                    </button>
+                    <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      Subfolder View
+                    </span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900">{selectedSubfolder.folderName}</h1>
+                  {selectedSubfolder.description && (
+                    <p className="text-sm text-slate-600 font-medium mt-1">{selectedSubfolder.description}</p>
+                  )}
+                </div>
+
+                <div className="px-4 py-2.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-extrabold flex items-center gap-2 shrink-0">
+                  <Icon name="HelpCircle" className="w-4 h-4 text-purple-600" />
+                  <span>{subfolderQuestions.length} Solution {subfolderQuestions.length === 1 ? 'Entry' : 'Entries'}</span>
+                </div>
+              </div>
+
+              {/* Questions & Solutions List */}
+              {subfolderQuestions.length > 0 ? (
+                <div className="space-y-6">
+                  {subfolderQuestions.map((q, idx) => (
+                    <div key={q.id || idx} className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm p-6 space-y-4">
+                      <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
+                        <div className="flex items-start gap-3">
+                          <span className="px-2.5 py-1 rounded-xl bg-purple-100 text-purple-800 text-xs font-mono font-black border border-purple-200 shrink-0">
+                            Q{idx + 1}
+                          </span>
+                          <div>
+                            <h3 className="text-lg font-bold text-slate-900 leading-snug">{q.questionTitle}</h3>
+                            {q.explanation && (
+                              <p className="text-xs text-slate-600 font-medium mt-1 leading-relaxed">{q.explanation}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-mono font-black uppercase px-3 py-1 bg-slate-100 text-slate-700 rounded-xl border border-slate-200">
+                            {q.language || 'Code'}
+                          </span>
+
+                          <button
+                            onClick={() => handleCopyCode(q.codeSnippet, q.id)}
+                            className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs border transition-all cursor-pointer flex items-center gap-1.5 ${
+                              copiedId === q.id
+                                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md scale-105'
+                                : 'bg-slate-900 hover:bg-purple-600 text-white border-slate-800 hover:border-purple-500'
+                            }`}
+                          >
+                            {copiedId === q.id ? (
+                              <>
+                                <Icon name="CheckCircle2" className="w-3.5 h-3.5 text-white" />
+                                <span>Copied! ✓</span>
+                              </>
+                            ) : (
+                              <>
+                                <Icon name="Copy" className="w-3.5 h-3.5" />
+                                <span>Copy Code</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Code Snippet Container */}
+                      <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-[#0f172a] p-4">
+                        <pre className="text-xs font-mono text-cyan-200 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                          {q.codeSnippet}
+                        </pre>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto">
+                  <Icon name="Folder" className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <div className="text-slate-900 font-bold text-base">No questions added to this subfolder yet</div>
+                  <p className="text-xs text-slate-500 mt-1">Admin will publish questions and answers inside this folder soon.</p>
+                </div>
+              )}
+            </section>
+          );
+        }
+
+        // Level 2: Subfolders Grid inside Selected Repository
+        return (
+          <section className="py-8 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-6">
+              <button onClick={onBack} className="hover:text-purple-700 flex items-center gap-1">
+                <Icon name="ArrowLeft" className="w-3.5 h-3.5" /> Back to Repositories
+              </button>
+              <span>/</span>
+              <span className="text-purple-700 font-extrabold">{repo.title}</span>
+            </div>
+
+            {/* Repository Overview Header */}
+            <div className="glass-panel p-6 sm:p-8 rounded-3xl mb-8 bg-white shadow-sm border border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                  {repo.category}
+                </span>
+                <span className="px-3 py-1 rounded-xl text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                  {repoSubfolders.length} {repoSubfolders.length === 1 ? 'Subfolder' : 'Subfolders'}
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-4xl font-black text-slate-900 mb-2">{repo.title}</h1>
+              <p className="text-sm text-slate-600 font-medium">{repo.description}</p>
+            </div>
+
+            {/* Subfolders Grid */}
+            <h3 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
+              <Icon name="Folder" className="w-5 h-5 text-indigo-600" />
+              <span>Select Subfolder to View Questions & Answers</span>
+            </h3>
+
+            {repoSubfolders.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                {repoSubfolders.map((sf) => {
+                  const qCount = questions.filter(q => q.subfolderId === sf.id).length;
+                  return (
+                    <div
+                      key={sf.id}
+                      onClick={() => setSelectedSubfolder(sf)}
+                      className="p-6 rounded-3xl bg-white border border-slate-200 hover:border-indigo-400 shadow-sm cursor-pointer hover:shadow-md transition-all flex flex-col justify-between group"
+                    >
+                      <div>
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <Icon name="Folder" className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">
+                          {sf.folderName}
+                        </h4>
+                        <p className="text-xs text-slate-500 font-medium line-clamp-2 mb-4">
+                          {sf.description || 'Contains code questions and solutions.'}
+                        </p>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-indigo-700 font-extrabold">
+                        <span>{qCount} Questions</span>
+                        <span className="group-hover:translate-x-1 transition-transform">Open Folder &rarr;</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-12 text-center bg-white rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto">
+                <Icon name="Folder" className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <div className="text-slate-900 font-bold text-base">No subfolders created in this repository yet</div>
+                <p className="text-xs text-slate-500 mt-1">Admin will add subfolders to organize questions for this repository.</p>
+              </div>
+            )}
+          </section>
+        );
+      }
+
+      // Footer Component
+      function Footer() {
+        return (
+          <footer className="mt-auto border-t border-slate-200/80 bg-white py-8">
+            <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 font-medium">
+              © 2026 Hoot Miner Platform. All rights reserved.
+            </div>
+          </footer>
+        );
+      }
+
+      // MAIN PUBLIC APP
+      function App() {
+        const [activeTab, setActiveTab] = useState('home');
+        const [selectedRepo, setSelectedRepo] = useState(null);
+        const [repositories, setRepositories] = useState([]);
+        const [subfolders, setSubfolders] = useState([]);
+        const [questions, setQuestions] = useState([]);
+        const [contests, setContests] = useState([]);
+        const [applications, setApplications] = useState([]);
+        const [toasts, setToasts] = useState([]);
+        
+        // User Auth & Application State
+        const [currentUser, setCurrentUser] = useState(() => {
+          const local = localStorage.getItem("hootminer_current_user");
+          return local ? JSON.parse(local) : null;
+        });
+
+        const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+        const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+        const [authTab, setAuthTab] = useState('login'); // 'login' | 'signup'
+        const [loginEmail, setLoginEmail] = useState('');
+        const [loginPassword, setLoginPassword] = useState('');
+        const [loginError, setLoginError] = useState('');
+        const [loginLoading, setLoginLoading] = useState(false);
+
+        const [viewingTestKey, setViewingTestKey] = useState(null);
+        const [applyContestModal, setApplyContestModal] = useState(null);
+
+        // Contest Application Form State (Auto-filled if currentUser logged in)
+        const [appForm, setAppForm] = useState({
+          fullName: '',
+          aadharNo: '',
+          educationDegree: '1st yr',
+          gender: 'Male',
+          contactEmail: ''
+        });
+
+        const handleLoginSubmit = async (e) => {
+          e.preventDefault();
+          setLoginError('');
+          setLoginLoading(true);
+
+          if (!loginEmail.trim() || !loginPassword.trim()) {
+            setLoginError('Please enter both email and password.');
+            setLoginLoading(false);
+            return;
+          }
+
+          if (window.HootDB) {
+            const res = await window.HootDB.loginUserAccount(loginEmail, loginPassword);
+            if (res.success) {
+              setCurrentUser(res.user);
+              setIsLoginModalOpen(false);
+              setLoginEmail('');
+              setLoginPassword('');
+              addToast(`Welcome back, ${res.user.fullName}!`, 'success');
+            } else {
+              setLoginError(res.message);
+            }
+          }
+          setLoginLoading(false);
+        };
+
+        const addToast = (message, type = 'info') => {
+          const id = Date.now() + Math.random();
+          setToasts((prev) => [...prev, { id, message, type }]);
+        };
+
+        const removeToast = (id) => {
+          setToasts((prev) => prev.filter((t) => t.id !== id));
+        };
+
+        const loadData = async () => {
+          if (window.HootDB) {
+            await window.HootDB.seedInitialDataIfNeeded();
+            const repos = await window.HootDB.fetchRepositories();
+            const sfList = await window.HootDB.fetchSubfolders ? await window.HootDB.fetchSubfolders() : [];
+            const qList = await window.HootDB.fetchQuestions();
+            const cList = await window.HootDB.fetchContests();
+            const aList = await window.HootDB.fetchContestApplications();
+            setRepositories(repos);
+            setSubfolders(sfList);
+            setQuestions(qList);
+            setContests(cList);
+            setApplications(aList);
+          }
+        };
+
+        const hasAutoOpenedExamRef = useRef(false);
+
+        useEffect(() => {
+          loadData();
+          if (window.HootDB) {
+            const unsub1 = window.HootDB.subscribeToRepositories((r) => setRepositories(r));
+            const unsub2 = window.HootDB.subscribeToSubfolders ? window.HootDB.subscribeToSubfolders((sf) => setSubfolders(sf)) : null;
+            const unsub3 = window.HootDB.subscribeToContests((c) => setContests(c));
+            const unsub4 = window.HootDB.subscribeToApplications ? window.HootDB.subscribeToApplications((a) => setApplications(a)) : null;
+            const unsub5 = window.HootDB.subscribeToQuestions ? window.HootDB.subscribeToQuestions((q) => setQuestions(q)) : null;
+            return () => {
+              if (typeof unsub1 === 'function') unsub1();
+              if (typeof unsub2 === 'function') unsub2();
+              if (typeof unsub3 === 'function') unsub3();
+              if (typeof unsub4 === 'function') unsub4();
+              if (typeof unsub5 === 'function') unsub5();
+            };
+          }
+        }, []);
+
+        // AUTO-OPEN SHARED EXAM IF URL PARAMETER examId IS PRESENT
+        useEffect(() => {
+          if (contests && contests.length > 0 && !hasAutoOpenedExamRef.current) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('examId') || urlParams.get('exam') || urlParams.get('testId');
+            if (examId) {
+              const targetExam = contests.find(c => String(c.id) === String(examId) || String(c.id) === decodeURIComponent(examId));
+              if (targetExam) {
+                hasAutoOpenedExamRef.current = true;
+                setActiveTab('home');
+                setViewingTestKey(targetExam);
+                addToast(`Opened shared live exam: "${targetExam.title}"`, 'info');
+                setTimeout(() => {
+                  const el = document.getElementById('live-tests');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }, 300);
+              }
+            }
+          }
+        }, [contests]);
+
+        // Handle Apply Click on Contest Card
+        const handleOpenApplyModal = (contest) => {
+          setApplyContestModal(contest);
+          if (currentUser) {
+            // AUTO-FILL details if user is logged in
+            setAppForm({
+              fullName: currentUser.fullName || '',
+              aadharNo: currentUser.aadharNo || '',
+              educationDegree: currentUser.educationDegree || '1st yr',
+              gender: currentUser.gender || 'Male',
+              contactEmail: currentUser.contactEmail || ''
+            });
+          } else {
+            // Prompt user login/register
+            setAppForm({ fullName: '', aadharNo: '', educationDegree: '1st yr', gender: 'Male', contactEmail: '' });
+          }
+        };
+
+        // Submit Contest Application
+        const handleSubmitContestApp = async (e) => {
+          e.preventDefault();
+          if (!appForm.fullName || !appForm.aadharNo || !appForm.contactEmail) {
+            addToast('Please fill out all required application fields.', 'error');
+            return;
+          }
+
+          if (window.HootDB) {
+            await window.HootDB.submitContestApplication({
+              contestId: applyContestModal.id,
+              contestTitle: applyContestModal.title,
+              ...appForm
+            });
+            addToast(`Successfully applied to "${applyContestModal.title}"!`, 'success');
+            setApplyContestModal(null);
+          }
+        };
+
+        const handleLogout = () => {
+          localStorage.removeItem("hootminer_current_user");
+          setCurrentUser(null);
+          setIsProfileModalOpen(false);
+          addToast('Logged out successfully', 'info');
+        };
+
+        return (
+          <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
+            <ToastContainer toasts={toasts} removeToast={removeToast} />
+            
+            <Navbar
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              currentUser={currentUser}
+              onOpenProfileModal={() => setIsProfileModalOpen(true)}
+              onOpenLoginModal={() => setIsLoginModalOpen(true)}
+            />
+            
+            <main className="flex-1">
+              {activeTab === 'home' && (
+                <>
+                  <LandingHero
+                    onLaunchWorkspace={() => setActiveTab('repos')}
+                    onOpenLiveTests={() => {
+                      const el = document.getElementById('live-tests');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  />
+
+                  {/* LIVE TESTS & EXAM ANSWER KEYS SECTION */}
+                  <ContestsSection
+                    contests={contests}
+                    onViewAnswerKey={(test) => setViewingTestKey(test)}
+                  />
+
+                  <FeatureGrid />
+                </>
+              )}
+
+              {activeTab === 'repos' && (
+                <RepositoryHub
+                  repositories={repositories}
+                  subfolders={subfolders}
+                  questions={questions}
+                  onSelectRepo={(r) => { setSelectedRepo(r); setActiveTab('repo-detail'); }}
+                />
+              )}
+
+              {activeTab === 'repo-detail' && selectedRepo && (
+                <RepositoryDetailView
+                  repo={selectedRepo}
+                  subfolders={subfolders}
+                  questions={questions}
+                  onBack={() => setActiveTab('repos')}
+                  addToast={addToast}
+                />
+              )}
+            </main>
+
+            <Footer />
+
+            {/* USER PROFILE MODAL */}
+            {isProfileModalOpen && currentUser && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                <div className="relative w-full max-w-md bg-white rounded-3xl p-6 border border-slate-200 shadow-2xl">
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white font-black text-lg flex items-center justify-center">
+                        {currentUser.fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-slate-900">{currentUser.fullName}</h3>
+                        <p className="text-xs text-purple-700 font-bold">{currentUser.contactEmail}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setIsProfileModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                      <Icon name="X" className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 text-xs font-semibold text-slate-700 mb-6">
+                    <div className="p-3 rounded-2xl bg-slate-50 border flex justify-between">
+                      <span className="text-slate-400">Adhar No:</span>
+                      <span className="font-mono font-bold text-slate-900">{currentUser.aadharNo}</span>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-slate-50 border flex justify-between">
+                      <span className="text-slate-400">Education Degree:</span>
+                      <span className="font-bold text-purple-700">{currentUser.educationDegree}</span>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-slate-50 border flex justify-between">
+                      <span className="text-slate-400">Gender:</span>
+                      <span className="font-bold text-slate-900">{currentUser.gender}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleLogout}
+                    className="w-full py-3 px-4 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 text-xs font-extrabold hover:bg-rose-100 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Icon name="LogOut" className="w-4 h-4" />
+                    <span>Sign Out Account</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* USER AUTHENTICATION MODAL (LOG IN / REGISTER TABS) */}
+            {isLoginModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-2xl">
+                  <button onClick={() => { setIsLoginModalOpen(false); setLoginError(''); }} className="absolute top-5 right-5 text-slate-400 hover:text-slate-700">
+                    <Icon name="X" className="w-5 h-5" />
+                  </button>
+
+                  <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center mx-auto mb-4">
+                    <Icon name="User" className="w-6 h-6" />
+                  </div>
+
+                  {/* Auth Mode Toggle Tabs */}
+                  <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6 border border-slate-200">
+                    <button
+                      onClick={() => setAuthTab('login')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                        authTab === 'login' ? 'bg-white text-purple-700 shadow-md' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Log In to Account
+                    </button>
+                    <button
+                      onClick={() => setAuthTab('signup')}
+                      className={`flex-1 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                        authTab === 'signup' ? 'bg-white text-purple-700 shadow-md' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Create New Account
+                    </button>
+                  </div>
+
+                  {authTab === 'login' ? (
+                    /* LOG IN FORM */
+                    <form onSubmit={handleLoginSubmit} className="space-y-4">
+                      <div className="text-center mb-2">
+                        <h3 className="text-xl font-black text-slate-900">Welcome Back</h3>
+                        <p className="text-xs text-slate-500 font-medium">Enter your registered email and password to log in.</p>
+                      </div>
+
+                      {loginError && (
+                        <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 flex items-center gap-2">
+                          <Icon name="Info" className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>{loginError}</span>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Contact Email *</label>
+                        <input
+                          type="email"
+                          required
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          placeholder="user@example.com"
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-purple-500 shadow-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Password *</label>
+                        <input
+                          type="password"
+                          required
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="••••••••••••"
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-purple-500 shadow-sm"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={loginLoading}
+                        className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg hover:shadow-purple-600/50 cursor-pointer mt-2"
+                      >
+                        {loginLoading ? 'Authenticating...' : 'Sign In & Log In'}
+                      </button>
+                    </form>
+                  ) : (
+                    /* CREATE NEW ACCOUNT LINK */
+                    <div className="text-center py-2 space-y-4">
+                      <h3 className="text-xl font-black text-slate-900">Create New Account</h3>
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                        Register once with your Full Name, Adhar No, Education Degree, Gender, Contact Email, and set your Password.
+                      </p>
+                      <a
+                        href="signup.html"
+                        className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-extrabold text-xs shadow-lg block cursor-pointer"
+                      >
+                        Open Registration Form &rarr;
+                      </a>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+            )}
+
+            {/* CONTEST APPLICATION FORM MODAL (WITH AUTO-FILL) */}
+            {applyContestModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div className="relative w-full max-w-md bg-white rounded-3xl p-6 border border-slate-200 shadow-2xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase text-purple-600">Contest Application</span>
+                      <h3 className="text-lg font-black text-slate-900">{applyContestModal.title}</h3>
+                    </div>
+                    <button onClick={() => setApplyContestModal(null)} className="text-slate-400 hover:text-slate-700">
+                      <Icon name="X" className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {currentUser ? (
+                    <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
+                      <Icon name="CheckCircle2" className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Details Auto-filled from your Account!</span>
+                    </div>
+                  ) : (
+                    <div className="mb-4 p-3 rounded-2xl bg-purple-50 border border-purple-200 text-xs font-medium text-purple-900 flex items-center justify-between">
+                      <span>Not logged in?</span>
+                      <a href="signup.html" className="font-extrabold text-purple-700 underline">Create Account</a>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSubmitContestApp} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Full Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={appForm.fullName}
+                        onChange={(e) => setAppForm({ ...appForm, fullName: e.target.value })}
+                        placeholder="John Doe"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Adhar No *</label>
+                      <input
+                        type="text"
+                        required
+                        value={appForm.aadharNo}
+                        onChange={(e) => setAppForm({ ...appForm, aadharNo: e.target.value })}
+                        placeholder="12-digit Adhar Number"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Education Degree *</label>
+                        <select
+                          value={appForm.educationDegree}
+                          onChange={(e) => setAppForm({ ...appForm, educationDegree: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none"
+                        >
+                          <option value="1st yr">1st yr</option>
+                          <option value="2nd yr">2nd yr</option>
+                          <option value="3rd yr">3rd yr</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Gender *</label>
+                        <select
+                          value={appForm.gender}
+                          onChange={(e) => setAppForm({ ...appForm, gender: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none"
+                        >
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase mb-1">Contact Email *</label>
+                      <input
+                        type="email"
+                        required
+                        value={appForm.contactEmail}
+                        onChange={(e) => setAppForm({ ...appForm, contactEmail: e.target.value })}
+                        placeholder="user@example.com"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                      <button type="button" onClick={() => setApplyContestModal(null)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
+                      <button type="submit" className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-extrabold shadow-md cursor-pointer">Submit Application</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* VIEW ANSWER KEY MODAL */}
+            {viewingTestKey && (
+              <ViewAnswerKeyModal
+                test={viewingTestKey}
+                onClose={() => setViewingTestKey(null)}
+                addToast={addToast}
+              />
+            )}
+
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
   </body>
 </html>
