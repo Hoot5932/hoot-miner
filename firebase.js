@@ -2,14 +2,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, get, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA1QeDf1E_Kb1ZC15ahw1dY8hk3J0gXopY",
-  authDomain: "thodu-65cb9.firebaseapp.com",
-  databaseURL: "https://thodu-65cb9-default-rtdb.firebaseio.com",
-  projectId: "thodu-65cb9",
-  storageBucket: "thodu-65cb9.firebasestorage.app",
-  messagingSenderId: "1070229943496",
-  appId: "1:1070229943496:web:038e2e74c463e7acefa1fd",
-  measurementId: "G-NF17LPGHWV"
+  apiKey: "AIzaSyCQuvmmOqLwtD9Fvf19Va7eo8FKVoSdOJ4",
+  authDomain: "hoot-5c731.firebaseapp.com",
+  databaseURL: "https://hoot-5c731-default-rtdb.firebaseio.com",
+  projectId: "hoot-5c731",
+  storageBucket: "hoot-5c731.firebasestorage.app",
+  messagingSenderId: "890493257903",
+  appId: "1:890493257903:web:4e238fbeb92ce9145eac5a",
+  measurementId: "G-9JSR65RKNQ"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -202,9 +202,6 @@ export function subscribeToRepositories(callback) {
   });
 }
 
-
-}
-
 // --- SUBFOLDERS DB OPERATIONS ---
 const LOCAL_STORAGE_SUBFOLDERS_KEY = "hootminer_subfolders";
 
@@ -253,7 +250,6 @@ export async function saveSubfolder(subfolder) {
 export async function deleteSubfolder(subfolderId) {
   try {
     await remove(ref(rtdb, `subfolders/${subfolderId}`));
-    // Also remove questions in this subfolder
     const allQuestions = await fetchQuestions();
     const remainingQuestions = allQuestions.filter(q => q.subfolderId !== subfolderId);
     const qMap = {};
@@ -284,10 +280,8 @@ export function subscribeToSubfolders(callback) {
   });
 }
 
-
 // --- LIVE TESTS / CONTESTS DB OPERATIONS ---
 
-// Fetch all Live Tests / Contests
 export async function fetchLiveTests() {
   try {
     const testsRef = ref(rtdb, "contests");
@@ -305,7 +299,6 @@ export async function fetchLiveTests() {
 }
 export const fetchContests = fetchLiveTests;
 
-// Save Live Test (Create or Update)
 export async function saveLiveTest(test) {
   const id = test.id || `test-${Date.now()}`;
   const now = new Date().toISOString();
@@ -335,7 +328,6 @@ export async function saveLiveTest(test) {
 }
 export const saveContest = saveLiveTest;
 
-// Delete Live Test
 export async function deleteLiveTest(testId) {
   try {
     await remove(ref(rtdb, `contests/${testId}`));
@@ -350,7 +342,6 @@ export async function deleteLiveTest(testId) {
 }
 export const deleteContest = deleteLiveTest;
 
-// Subscribe to Live Tests
 export function subscribeToLiveTests(callback) {
   const testsRef = ref(rtdb, "contests");
   return onValue(testsRef, (snapshot) => {
@@ -365,7 +356,6 @@ export function subscribeToLiveTests(callback) {
 }
 export const subscribeToContests = subscribeToLiveTests;
 
-
 // --- CONTEST APPLICATIONS DB OPERATIONS ---
 
 export async function submitContestApplication(application) {
@@ -374,7 +364,7 @@ export async function submitContestApplication(application) {
   const appData = {
     ...application,
     id,
-    status: application.status || 'Pending', // 'Pending' | 'Accepted' | 'Rejected'
+    status: application.status || 'Pending',
     appliedAt: now
   };
 
@@ -452,8 +442,8 @@ export async function saveUserProfile(user) {
   const userData = {
     fullName: user.fullName,
     aadharNo: user.aadharNo,
-    educationDegree: user.educationDegree, // '1st yr', '2nd yr', '3rd yr'
-    gender: user.gender, // 'Male' or 'Female'
+    educationDegree: user.educationDegree,
+    gender: user.gender,
     contactEmail: user.contactEmail.toLowerCase(),
     password: user.password || '',
     createdAt: user.createdAt || new Date().toISOString()
@@ -461,7 +451,6 @@ export async function saveUserProfile(user) {
 
   localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(userData));
 
-  // Save to list of all users
   const localUsers = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
   const parsedUsers = localUsers ? JSON.parse(localUsers) : [];
   const idx = parsedUsers.findIndex(u => u.contactEmail.toLowerCase() === userData.contactEmail.toLowerCase());
@@ -498,7 +487,6 @@ export async function loginUserAccount(email, password) {
     console.warn("Firebase login check fallback to local storage:", e);
   }
 
-  // Fallback to local storage list
   const localUsers = localStorage.getItem(LOCAL_STORAGE_USERS_KEY);
   const parsedUsers = localUsers ? JSON.parse(localUsers) : [];
   const user = parsedUsers.find(u => u.contactEmail.toLowerCase() === cleanEmail);
@@ -518,4 +506,3 @@ export async function loginUserAccount(email, password) {
 export function logoutUser() {
   localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
 }
-
